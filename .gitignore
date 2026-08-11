@@ -2,7 +2,7 @@
 /vendor/
 
 # Environment & Secrets
-config/.env
+**/.env
 *.pem
 *.key
 *.crt
@@ -14,14 +14,9 @@ config/.env
 *.log
 
 # IDE & Editor
-.idea/
-.vscode/
 *.swp
 *.swo
 *~
-.project
-.settings/
-.buildpath
 
 # OS Files
 .DS_Store

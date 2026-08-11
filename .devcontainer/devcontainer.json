@@ -1,0 +1,55 @@
+{
+   "name": "Vehicle Workshop - dev",
+   "build": {
+      "dockerfile": "../docker/Dockerfile",
+      "target": "dev",
+      "context": ".."
+   },
+
+   "workspaceFolder": "/app",
+   "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=consistent",
+   "mounts": [
+      "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached"
+   ],
+
+   "overrideCommand": false,
+   "forwardPorts": [80],
+
+   "portsAttributes": {
+      "80": {
+         "label": "HTTP",
+         "onAutoForward": "notify"
+      }
+   },
+
+   "customizations": {
+      "vscode": {
+         "extensions": [
+            "devsense.phptools-vscode",
+            "ecmel.vscode-html-css",
+            "mrmlnc.vscode-scss",
+            "dbaeumer.vscode-eslint"
+         ],
+
+         "settings": {
+            "php.validate.executablePath": "/usr/local/bin/php",
+            "phpTools.project": "/app",
+            "files.watcherExclude": {
+               "**/vendor/**": true,
+               "**/.git/**": true
+            }
+         }
+      }
+   },
+
+   "remoteUser": "root",
+   "features": {
+      "ghcr.io/devcontainers/features/common-utils:2": {
+         "installZsh": true,
+         "configureZshAsDefaultShell": true,
+         "username": "root",
+         "userUid": "automatic",
+         "userGid": "automatic"
+      }
+   }
+}

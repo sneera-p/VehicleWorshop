@@ -1,0 +1,12 @@
+{
+    "name": "sneera/vwork",
+    "description": "Vehicle Workshop Management System",
+    "type": "project",
+    "authors": [
+        {
+            "name": "senira",
+            "email": "senirahan@gmail.com"
+        }
+    ],
+    "require": {}
+}
