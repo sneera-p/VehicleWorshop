@@ -145,14 +145,6 @@ vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
 
 At 200 staff / 2K customers, horizontal scaling is unnecessary. A single deployable unit provides ACID transactions across modules, eliminates network overhead, and reduces operational complexity. Module boundaries are enforced via code (Deptrac + facade interfaces), not network isolation.
 
-### Why Pure PHP Over Laravel/Symfony?
-
-The domain model (ER + State Machines + Activities) drives all abstractions. Framework ORMs and service containers add generic overhead that doesn't align with workshop-specific workflows. Our DI container is ~80 lines. Our router is ~120 lines. Zero transitive dependency bloat.
-
-### Why Server-Rendered Templates Over SPA?
-
-Garages have spotty internet and old devices. Server-rendered PHP templates work on any browser with zero JS bundle. HTMX can be added later for progressive enhancement without abandoning this approach.
-
 ### Async Strategy
 
 - **Synchronous** (same DB transaction): Job parts consumption, quotation generation, payment recording

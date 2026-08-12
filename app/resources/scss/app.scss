@@ -1,0 +1,11 @@
+// resources/scss/app.scss
+//
+// Entry point — compiled by the real `sass` compiler (not Bun's bundler,
+// which doesn't understand Sass syntax) into public/build/css/app.css.
+// Placeholder: real content depth is still an open decision.
+
+$placeholder-color: #d60000;
+
+body {
+   color: $placeholder-color;
+}

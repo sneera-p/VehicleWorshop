@@ -5,13 +5,18 @@
 .env.*
 !.env.example
 
+
 .devcontainer/
+.githooks/
 .vscode/
-docs/
 docker/
+docs/
 vendor/
 node_modules/
 public/assets/
+tools/
 var/
 
+
 README.md
+.editorconfig

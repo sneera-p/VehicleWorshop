@@ -1,0 +1,44 @@
+{
+   "compilerOptions": {
+      // Bun handles transpilation; tsc is used only for type-checking
+      // (see the "typecheck" script in package.json).
+      "noEmit": true,
+      "lib": [
+         "ESNext",
+         "DOM",
+         "DOM.Iterable"
+      ],
+      "target": "ESNext",
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "moduleDetection": "force",
+      "types": [
+         "@types/bun"
+      ],
+      // Strictness — catches the classes of bug TypeScript exists to catch.
+      // Relax individual flags here if they prove too noisy in practice.
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "noImplicitOverride": true,
+      "noFallthroughCasesInSwitch": true,
+      "allowJs": true,
+      "esModuleInterop": true,
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "skipLibCheck": true,
+      "verbatimModuleSyntax": true,
+      "paths": {
+         "@/*": [
+            "./app/resources/ts/*"
+         ]
+      }
+   },
+   "include": [
+      "./app/resources/ts/**/*.ts"
+   ],
+   "exclude": [
+      "./node_modules",
+      "./public/assets",
+      "./vendor"
+   ]
+}

@@ -11,11 +11,13 @@ FROM dunglas/frankenphp:1.12.7-php8.5-trixie@sha256:4b0713ddad6ca7eb21eb82ac6bdb
 # redis        → Valkey pub/sub (notifications, SSE streams, session tokens)
 # gd           → Vehicle Damage.Picture, User.Picture (ER diagram)
 # opcache      → Production performance
+# iconv        → required by symfony/polyfill-mbstring (php-cs-fixer dep)
 RUN install-php-extensions \
    pdo_pgsql \
    redis \
    gd \
    opcache \
+   iconv \
    @composer
 
 WORKDIR /app
@@ -49,8 +51,37 @@ RUN composer install \
    --prefer-dist \
    --no-scripts
 
-# --watch enables HMR-like reload for SSE/stream development
-CMD ["frankenphp", "run", "--config", "/app/config/Caddyfile", "--watch"]
+# Bun: frontend asset toolchain (TypeScript + SCSS bundling into public/).
+# Copied from the official image rather than curl-installed — keeps the
+# version pinned and avoids a network fetch during build.
+COPY --from=oven/bun:1.3-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b0114720a0277a8f939ae4dfc9db6f /usr/local/bin/bun /usr/local/bin/bun
+RUN bun install --frozen-lockfile
+
+# Runs both FrankenPHP and Bun's asset watcher concurrently. NOT done as
+# CMD ["bun","run","dev","&","frankenphp",...] — exec-form CMD never invokes a shell
+RUN chmod +x ./dev.start.sh
+
+CMD [ "sh", "dev.start.sh"]
+
+
+
+# ===============================
+# Asset Build (prod assets only)
+# ===============================
+# Separate stage so Bun and node_modules never land in the prod image —
+# only the compiled output in public/assets/ gets copied forward.
+FROM oven/bun:1.3-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b0114720a0277a8f939ae4dfc9db6f AS assets
+
+WORKDIR /app
+
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+
+COPY tsconfig.json ./
+COPY app/resources/ts ./app/resources/ts
+COPY app/resources/scss ./app/resources/scss
+
+RUN bun run build
 
 
 
@@ -61,11 +92,22 @@ FROM base AS prod
 
 ENV FRANKENPHP_WORKER=1
 
-COPY . .
+# Bun itself was never installed in this stage; the compiled output
+# arrives separately below, via COPY --from=assets.
+COPY --exclude=app/resources/ts \
+   --exclude=app/resources/scss \
+   --exclude=package.json \
+   --exclude=bun.lock* \
+   --exclude=tsconfig.json \
+   --exclude=dev.start.sh \
+   . .
+
 RUN composer install \
    --no-dev \
    --no-scripts \
    --prefer-dist \
    --optimize-autoloader
+
+COPY --from=assets /app/public/assets ./public/assets
 
 CMD ["frankenphp", "run", "--config", "/app/config/Caddyfile.prod"]
