@@ -11,12 +11,12 @@ vehicle-workshop/
 │   ├── 002.sql
 │   └── 0xx.sql
 │
-├── packages/                  # Pure PHP libraries (zero framework dependency)
+├── shared/                    # Pure PHP libraries (zero framework dependency)
 │   ├── domain-core/           # Entities, Value Objects, Domain Events
 │   ├── validator/             # Input validation rules (NIC, VIN, email, etc.)
 │   ├── valkey-async/          # Valkey queue + pub/sub client
 │   ├── module-contracts/      # Facade interfaces (cross-module API surface)
-│   └── shared/                # Base classes, exceptions, UUID, Money wrapper
+│   └── kernel/                # Base classes, exceptions, UUID, Money wrapper
 │
 ├── modules/                   # Business logic by bounded context
 │   ├── Identity/              # Auth, sessions, stream tokens
@@ -34,10 +34,13 @@ vehicle-workshop/
 │   ├── http/
 │   │   ├── controllers/       # Request handlers (delegate to facades)
 │   │   └── middleware/        # Auth, RBCA, StreamToken
-│   ├── resources/views/       # Server-rendered PHP templates
-│   │   ├── customer/          # Customer Web App pages
-│   │   ├── staff/             # Staff Web App pages
-│   │   └── components/        # Reusable partials
+│   ├── resources/
+│   │   ├──views/              # Server-rendered PHP templates
+│   │   │   ├── customer/      # Customer Web App pages
+│   │   │   ├── staff/         # Staff Web App pages
+│   │   │   └── components/    # Reusable partials
+│   │   ├──scss/               # stylesheets
+│   │   └──ts/                 # browser js code (in ts for typesafety)
 │   ├── router.php             # Trie-based URL dispatcher
 │   ├── container.php          # Lightweight DI container
 │   ├── pipeline.php           # Middleware pipeline
@@ -49,10 +52,13 @@ vehicle-workshop/
 │   └── .env.example
 │
 ├── bin/
-│   ├── console                # CLI admin commands
+│   ├── console                # CLI admin commands (not sure)
 │   └── queue-worker           # Valkey async worker (long-running)
 │
 ├── public/
+│   ├── assets/                # transpiled assets from './app/resources'
+│   │   ├──app.css             # minified css file
+│   │   └──app.js              # minified js file
 │   └── index.php              # Single HTTP entry point
 │
 ├── tests/                     # Unit (per module) + Integration (cross-module)
@@ -67,11 +73,11 @@ vehicle-workshop/
 
 ## Prerequisites
 
--   PHP 8.3+ (with `pdo_pgsql`, `redis` extensions)
--   PostgreSQL 15+
--   Valkey (Redis-compatible) 7+
--   Composer 2.x
--   Docker & Docker Compose
+- PHP 8.3+ (with `pdo_pgsql`, `redis` extensions)
+- PostgreSQL 15+
+- Valkey (Redis-compatible) 7+
+- Composer 2.x
+- Docker & Docker Compose
 
 ## Quick Start
 
@@ -108,23 +114,23 @@ php bin/queue-worker
 
 ### 5. Access the Application
 
-| App              | URL                           | Default Login               |
-| ---------------- | ----------------------------- | --------------------------- |
-| Customer Web App | http://localhost/customer     | customer@test.com / password |
-| Staff Web App    | http://localhost/staff        | technician@test.com / password |
-| Admin Panel      | http://localhost/admin        | admin@test.com / password    |
+| App              | URL                           | Default Login                    |
+| ---------------- | ----------------------------- | -------------------------------- |
+| Customer Web App | <http://localhost/customer>   | <customer@test.com> / password   |
+| Staff Web App    | <http://localhost/staff>      | <technician@test.com> / password |
+| Admin Panel      | <http://localhost/admin>      | <admin@test.com> / password      |
 
 ## Module Dependency Rules
 
 Cross-module communication follows strict rules enforced by Deptrac:
 
-| Allowed                                         | Forbidden                                            |
-| ----------------------------------------------- | ---------------------------------------------------- |
-| Module → `packages/module-contracts/*` (interfaces only) | Module → Another module's `Internal/` directory      |
-| Module → `packages/domain-core/*` (entities/events)     | Module → Another module's Repository/Mapper          |
-| Module → `packages/shared-kernel/*`                    | Direct entity instantiation across modules           |
-| Async events via Valkey Pub/Sub                        | Synchronous calls to NotificationModule              |
-| Shared DB transactions (Job + Inventory)                 | Cross-module DB queries without facade               |
+| Allowed                                                  | Forbidden                                        |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| Module → `packages/module-contracts/*` (interfaces only) | Module → Another module's `Internal/` directory  |
+| Module → `packages/domain-core/*` (entities/events)      | Module → Another module's Repository/Mapper      |
+| Module → `packages/shared-kernel/*`                      | Direct entity instantiation across modules       |
+| Async events via Valkey Pub/Sub                          | Synchronous calls to NotificationModule          |
+| Shared DB transactions (Job + Inventory)                 | Cross-module DB queries without facade           |
 
 Run enforcement:
 
@@ -149,9 +155,9 @@ Garages have spotty internet and old devices. Server-rendered PHP templates work
 
 ### Async Strategy
 
--   **Synchronous** (same DB transaction): Job parts consumption, quotation generation, payment recording
--   **Async via Valkey Queue**: Notification dispatch, PDF generation, backup execution
--   **Async via Valkey Pub/Sub**: Domain event fan-out (JobCompleted → Notification, LowStock → SupplierOrder)
+- **Synchronous** (same DB transaction): Job parts consumption, quotation generation, payment recording
+- **Async via Valkey Queue**: Notification dispatch, PDF generation, backup execution
+- **Async via Valkey Pub/Sub**: Domain event fan-out (JobCompleted → Notification, LowStock → SupplierOrder)
 
 ## Testing
 
@@ -186,13 +192,13 @@ vendor/bin/infection --min-msi=80
 <!---->
 ## Adding a New Endpoint
 
-1.  Define the route in `config/routes.php`
-2.  Create controller method in `app/Http/Controllers/`
-3.  Add facade method to interface in `packages/module-contracts/`
-4.  Implement in module's `Facade/` class
-5.  Add business logic in module's `Internal/` services
-6.  Write unit test for service + integration test for endpoint
-7.  Run `deptrac` to verify no boundary violations
+1. Define the route in `config/routes.php`
+2. Create controller method in `app/Http/Controllers/`
+3. Add facade method to interface in `packages/module-contracts/`
+4. Implement in module's `Facade/` class
+5. Add business logic in module's `Internal/` services
+6. Write unit test for service + integration test for endpoint
+7. Run `deptrac` to verify no boundary violations
 
 ## Production Deployment
 
@@ -215,7 +221,7 @@ APP_DEBUG=false
 
 All architectural decisions trace back to these specification artifacts:
 
--   `docs/ER.drawio` — Entity relationships and attributes
--   `docs/UseCases.drawio` — Actor interactions and module boundaries
--   `docs/Activities.drawio` — Workflow sequences and decision points
--   `docs/StateMachines.drawio` — Lifecycle states and guard conditions
+- `docs/ER.drawio` — Entity relationships and attributes
+- `docs/UseCases.drawio` — Actor interactions and module boundaries
+- `docs/Activities.drawio` — Workflow sequences and decision points
+- `docs/StateMachines.drawio` — Lifecycle states and guard conditions

@@ -1,43 +1,58 @@
 {
    "name": "Vehicle Workshop - dev",
-   "build": {
-      "dockerfile": "../docker/Dockerfile",
-      "target": "dev",
-      "context": ".."
-   },
+   "dockerComposeFile": [
+      "../docker/docker-compose.yml",
+      "../docker/docker-compose.dev.yml"
+   ],
+
+   "service": "app",
+   "shutdownAction": "stopCompose",
+   "overrideCommand": false,
 
    "workspaceFolder": "/app",
-   "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=consistent",
    "mounts": [
       "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached"
    ],
 
-   "overrideCommand": false,
-   "forwardPorts": [80],
-
+   "forwardPorts": [9003],
    "portsAttributes": {
       "80": {
          "label": "HTTP",
-         "onAutoForward": "notify"
+         "onAutoForward": "openBrowserOnce"
+      },
+      "9003": {
+         "label": "PHP Xdebug",
+         "onAutoForward": "silent"
       }
    },
 
    "customizations": {
       "vscode": {
          "extensions": [
-            "devsense.phptools-vscode",
+            // docker & docker-compose validation
+            "ms-azuretools.vscode-containers",
+            // database client
+            "cweijan.dbclient-jdbc",
+            // git
+            "eamodio.gitlens",
+            // editor-tools
+            "editorconfig.editorconfig",
+            "ionutvmi.path-autocomplete",
+            // dev-tools
+            "junstyle.php-cs-fixer",
+            "bmewburn.vscode-intelephense-client",
             "ecmel.vscode-html-css",
             "mrmlnc.vscode-scss",
-            "dbaeumer.vscode-eslint"
+            // linters
+            "dbaeumer.vscode-eslint",
+            "davidanson.vscode-markdownlint",
+            "foxundermoon.shell-format",
+            // debug
+            "xdebug.php-debug"
          ],
 
          "settings": {
-            "php.validate.executablePath": "/usr/local/bin/php",
-            "phpTools.project": "/app",
-            "files.watcherExclude": {
-               "**/vendor/**": true,
-               "**/.git/**": true
-            }
+            "php.validate.executablePath": "/usr/local/bin/php"
          }
       }
    },

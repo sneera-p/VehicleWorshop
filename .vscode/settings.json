@@ -1,0 +1,55 @@
+{
+   // .editorconfig is the cross-editor source of truth; these
+   // settings mirror it for VS Code specifically and add PSR-12
+   // formatter wiring that .editorconfig alone can't express.
+   "editor.insertSpaces": true,
+   "editor.tabSize": 3,
+   "editor.detectIndentation": false,
+   "editor.formatOnSave": true,
+   "editor.trimAutoWhitespace": true,
+   "files.trimTrailingWhitespace": true,
+   "files.insertFinalNewline": true,
+   "files.eol": "\n",
+
+   // PSR-12 requires 4-space indentation — this is a spec requirement, not
+   // a preference, so PHP gets an explicit override of the 3-space default.
+   "[php]": {
+      "editor.tabSize": 4,
+      "editor.defaultFormatter": "junstyle.php-cs-fixer"
+   },
+
+   // DevSense (above) is the active default formatter. This wires up the
+   // junstyle.php-cs-fixer extension too (installed in decontainer.json)
+   // so it stays usable/correct if anyone switches to it — otherwise it
+   // silently falls back to searching the workspace root for a config
+   // file that no longer lives there (moved to tools/) and would run with
+   // unconfigured defaults instead of PSR-12, with no visible warning.
+   "php-cs-fixer.executablePath": "vendor/bin/php-cs-fixer",
+   "php-cs-fixer.config": "tools/.php-cs-fixer.dist.php",
+
+   // Version-appropriate diagnostics/suggestions from Intelephense, matching
+   // the "php": "^8.5" constraint in composer.json.
+   "intelephense.environment.phpVersion": "8.5.0",
+
+   // Markdown: preserve trailing whitespace (can encode intentional line
+   // breaks), matching the .editorconfig exception.
+   "[markdown]": {
+      "files.trimTrailingWhitespace": false
+   },
+
+   // Dockerfile, YAML, and JSON already match the project default (3), but
+   // stated explicitly here so a future global user-settings change can't
+   // silently override them per-language.
+   "[dockerfile]": {
+      "editor.tabSize": 3
+   },
+   "[yaml]": {
+      "editor.tabSize": 3
+   },
+   "[json]": {
+      "editor.tabSize": 3
+   },
+   "[jsonc]": {
+      "editor.tabSize": 3
+   }
+}

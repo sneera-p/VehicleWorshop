@@ -1,0 +1,41 @@
+{
+   // Debugger configurations. Press F5 or use the Run & Debug panel.
+   //
+   // Requires Xdebug, which the Dockerfile's `dev` stage installs and
+   // configures (see docker/Dockerfile). Xdebug is set to
+   // start_with_request=trigger, so it stays dormant until a debug session
+   // actually triggers it — no performance hit on normal dev requests.
+   //
+   // Note: no "pathMappings" needed here. Because VS Code runs INSIDE the
+   // devcontainer, ${workspaceFolder} already resolves to /app, the same
+   // path the code lives at in the container. pathMappings is only needed
+   // when the editor runs on the host and the code sits at a different
+   // path inside the container.
+   "version": "0.2.0",
+   "configurations": [
+      {
+         // Primary workflow: start this, then load a page in the browser.
+         // Xdebug connects back and breakpoints hit.
+         "name": "Listen for Xdebug",
+         "type": "php",
+         "request": "launch",
+         "port": 9003,
+         "skipFiles": [
+            "**/vendor/**/*.php"
+         ]
+      },
+      {
+         // Debug a single CLI script (whatever file is currently focused)
+         // without going through the web server.
+         "name": "Debug current script (CLI)",
+         "type": "php",
+         "request": "launch",
+         "program": "${file}",
+         "cwd": "${fileDirname}",
+         "port": 9003,
+         "runtimeArgs": [
+            "-dxdebug.start_with_request=yes"
+         ]
+      }
+   ]
+}

@@ -1,0 +1,9 @@
+# docker-compose.dev.yml
+services:
+   app:
+      build:
+         target: dev
+      volumes:
+         - ..:/app
+         - /app/vendor
+      restart: "no"

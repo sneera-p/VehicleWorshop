@@ -1,0 +1,167 @@
+{
+   // Named commands runnable via Ctrl+Shift+P → "Run Task".
+   // "Lint: fix" is the default build task (Ctrl+Shift+B).
+   //
+   // These all run inside the devcontainer, so they use the container's
+   // PHP/Composer — not the host's, which has a different PHP build and
+   // extension set entirely.
+   "version": "2.0.0",
+   "tasks": [
+      // ─── Lint ───────────────────────────────────────────────
+      {
+         "label": "Lint: fix",
+         "type": "shell",
+         "command": "vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php",
+         "problemMatcher": [],
+         "group": {
+            "kind": "build",
+            "isDefault": true
+         },
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Lint: check",
+         "type": "shell",
+         "command": "vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php --dry-run --diff",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
+      // ─── Test ───────────────────────────────────────────────
+      {
+         "label": "Test: unit",
+         "type": "shell",
+         "command": "vendor/bin/phpunit --configuration=tools/phpunit.xml.dist --testsuite=unit",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         // Needs `docker compose up` running first — connects to the real
+         // Postgres/Valkey, unlike "Test: unit".
+         "label": "Test: integration",
+         "type": "shell",
+         "command": "vendor/bin/phpunit --configuration=tools/phpunit.xml.dist --testsuite=integration",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
+      // ─── Static analysis ────────────────────────────────────
+      {
+         "label": "Static analysis: PHPStan",
+         "type": "shell",
+         "command": "vendor/bin/phpstan analyse --configuration=tools/phpstan.neon",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
+      // ─── Composer ───────────────────────────────────────────
+      {
+         "label": "Composer: install",
+         "type": "shell",
+         "command": "composer install",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Composer: validate",
+         "type": "shell",
+         "command": "composer validate --strict",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Composer: update",
+         "type": "shell",
+         "command": "composer update --with-all-dependencies",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Composer: audit",
+         "type": "shell",
+         "command": "composer audit",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
+      // ─── Docker (dev stack only — prod tasks dropped) ──────
+      {
+         // Attached, not detached (-d) — streams all services' logs live.
+         // Never completes on its own; Ctrl+C or "Docker: down" to stop.
+         "label": "Docker: up",
+         "type": "shell",
+         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up",
+         "problemMatcher": [],
+         "isBackground": true,
+         "presentation": {
+            "reveal": "always",
+            "panel": "dedicated"
+         }
+      },
+      {
+         "label": "Docker: down",
+         "type": "shell",
+         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml down",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         // Filtered view of just "app" — useful if the stack was started
+         // another way (e.g. the Dev Containers extension) rather than via
+         // "Docker: up" above, which already streams everything.
+         "label": "Docker: app logs",
+         "type": "shell",
+         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml logs -f app",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "dedicated"
+         }
+      },
+
+      // ─── Composite ──────────────────────────────────────────
+      {
+         // Matches what pre-push runs — "Test: integration" deliberately
+         // excluded, same reasoning: it needs the stack running, and this
+         // task shouldn't assume that any more than a git hook should.
+         "label": "Check: all",
+         "dependsOn": [
+            "Lint: check",
+            "Test: unit",
+            "Static analysis: PHPStan"
+         ],
+         "dependsOrder": "sequence",
+         "problemMatcher": []
+      }
+   ]
+}

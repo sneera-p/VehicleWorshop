@@ -12,19 +12,18 @@ FROM dunglas/frankenphp:1.12.7-php8.5-trixie@sha256:4b0713ddad6ca7eb21eb82ac6bdb
 # gd           → Vehicle Damage.Picture, User.Picture (ER diagram)
 # opcache      → Production performance
 RUN install-php-extensions \
-    pdo_pgsql \
-    redis \
-    gd \
-    opcache
-
-# PUT TO COMPOSE FILE
-ENV FRANKENPHP_WORKER=1
+   pdo_pgsql \
+   redis \
+   gd \
+   opcache \
+   @composer
 
 WORKDIR /app
 
-COPY composer.json composer.lock ./
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 EXPOSE 80
+
 
 
 # ===============================
@@ -32,24 +31,41 @@ EXPOSE 80
 # ===============================
 FROM base AS dev
 
-# RUN composer install \
-#     --prefer-dist \
-#     --no-scripts
+# Xdebug is dev-only — it carries a significant runtime performance cost and
+# must never ship to production. Installed but idle by default: it only
+# activates when a debug session triggers it (start_with_request=trigger),
+# so normal dev requests aren't slowed down.
+RUN install-php-extensions xdebug
+RUN { \
+   echo "xdebug.mode=debug,develop"; \
+   echo "xdebug.start_with_request=trigger"; \
+   echo "xdebug.client_host=localhost"; \
+   echo "xdebug.client_port=9003"; \
+   echo "xdebug.log_level=0"; \
+   } > "${PHP_INI_DIR}/conf.d/99-xdebug.ini"
+
+COPY . .
+RUN composer install \
+   --prefer-dist \
+   --no-scripts
 
 # --watch enables HMR-like reload for SSE/stream development
-COPY . .
-CMD frankenphp run --config /app/config/Caddyfile --watch
+CMD ["frankenphp", "run", "--config", "/app/config/Caddyfile", "--watch"]
+
 
 
 # ===============================
 # Production
 # ===============================
 FROM base AS prod
-# RUN composer install \
-#     --no-dev \
-#     --no-scripts \
-#     --prefer-dist \
-#     --optimize-autoloader
+
+ENV FRANKENPHP_WORKER=1
 
 COPY . .
-CMD frankenphp run --config /app/config/Caddyfile
+RUN composer install \
+   --no-dev \
+   --no-scripts \
+   --prefer-dist \
+   --optimize-autoloader
+
+CMD ["frankenphp", "run", "--config", "/app/config/Caddyfile.prod"]

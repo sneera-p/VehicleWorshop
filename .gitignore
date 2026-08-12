@@ -1,8 +1,11 @@
 # Dependencies
-/vendor/
+vendor/
+node_modules/
 
 # Environment & Secrets
 **/.env
+**/.env.*
+!docker/.env
 *.pem
 *.key
 *.crt
@@ -12,6 +15,7 @@
 /tmp/
 *.cache
 *.log
+/public/assets/
 
 # IDE & Editor
 *.swp

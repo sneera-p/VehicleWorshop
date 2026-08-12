@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:noNamespaceSchemaLocation="../vendor/phpunit/phpunit/phpunit.xsd"
+   bootstrap="../vendor/autoload.php"
+   colors="true"
+   cacheDirectory="../var/cache/phpunit"
+>
+   <!--
+      Tests are discovered by directory, not by Composer autoload-dev
+      namespace. This matters: each package's own composer.json declares
+      its own autoload-dev (e.g. shared/validator's "Vwork\Validator\Tests\"),
+      but Composer only merges the ROOT project's autoload-dev — a
+      dependency's autoload-dev, like its require-dev, is ignored entirely.
+      Pointing PHPUnit straight at each package's tests/ folder sidesteps
+      that limitation rather than duplicating every namespace here too.
+
+      Unlike PHPStan's "paths" (which requires literal directories), these
+      <directory> elements DO support wildcards — PHPUnit expands them
+      itself, so shared/*/tests correctly picks up every package.
+   -->
+   <testsuites>
+      <testsuite name="unit">
+         <directory>../shared/*/tests</directory>
+         <directory>../modules/*/tests</directory>
+      </testsuite>
+      <!--
+         Cross-module, requires a running DB/Valkey (docker compose up),
+         unlike "unit" above. Lives at the top level rather than inside any
+         single package's tests/, since an integration test by definition
+         isn't scoped to one package. Never run from pre-commit/pre-push —
+         a push shouldn't assume the stack happens to be running.
+      -->
+      <testsuite name="integration">
+         <directory>../tests/integration</directory>
+      </testsuite>
+   </testsuites>
+
+   <source>
+      <include>
+         <directory>../shared/*/src</directory>
+         <directory>../modules/*/src</directory>
+      </include>
+   </source>
+</phpunit>

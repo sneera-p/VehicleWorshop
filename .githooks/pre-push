@@ -1,0 +1,18 @@
+#!/bin/sh
+# .githooks/pre-push
+#
+# Heavier checks — full-project static analysis and the full test suite.
+# Runs once per push, not once per commit, so the extra time is acceptable
+# here in a way it wouldn't be in pre-commit.
+
+set -e
+
+echo "Running PHPStan..."
+vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
+
+echo ""
+echo "Running PHPUnit (unit only — integration needs DB/Valkey running,"
+echo "which a push shouldn't assume; run that suite manually or in CI)..."
+vendor/bin/phpunit --configuration=tools/phpunit.xml.dist --testsuite=unit
+
+exit 0

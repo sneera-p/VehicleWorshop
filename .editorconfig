@@ -1,0 +1,26 @@
+# EditorConfig: https://editorconfig.org
+# Read by VS Code natively, and by DEVSENSE PHP Tools' formatter, PhpStorm,
+# and most other editors — this is the cross-editor source of truth for
+# indentation, independent of any one tool's own settings file.
+
+root = true
+
+# Project-wide default
+[*]
+indent_style = space
+indent_size = 3
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# PSR-12 (which this project enforces for PHP — see .php-cs-fixer.dist.php)
+# mandates 4-space indentation. This is not a style preference within
+# PSR-12, it's part of the spec (inherited from PSR-1/PSR-2), so PHP gets
+# an explicit exception rather than following the project default.
+[*.php]
+indent_size = 4
+
+# Markdown: trailing whitespace can be meaningful (line breaks), don't trim.
+[*.md]
+trim_trailing_whitespace = false

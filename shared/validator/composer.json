@@ -1,0 +1,26 @@
+{
+   "name": "vwork/validator",
+   "description": "Input validation rules (NIC, VIN, email, etc.)",
+   "require": {
+      "php": "^8.5"
+   },
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Validator\\": "src/"
+      }
+   },
+   "autoload-dev": {
+      "psr-4": {
+         "Vwork\\Validator\\Tests\\": "tests/"
+      }
+   },
+   "type": "library",
+   "license": "proprietary",
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "stable"
+}
