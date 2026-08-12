@@ -68,6 +68,16 @@
             "panel": "shared"
          }
       },
+      // {
+      //    "label": "Architecture: Deptrac",
+      //    "type": "shell",
+      //    "command": "vendor/bin/deptrac analyse --config-file=deptrac.php",
+      //    "problemMatcher": [],
+      //    "presentation": {
+      //       "reveal": "always",
+      //       "panel": "shared"
+      //    }
+      // },
 
       // ─── Composer ───────────────────────────────────────────
       {
@@ -149,6 +159,51 @@
          }
       },
 
+      // ─── Assets (Bun + Sass) ────────────────────────────────
+      {
+         "label": "Assets: build",
+         "type": "shell",
+         "command": "bun run build",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         // Never completes on its own — watches app/resources/{ts,scss}
+         // and rebuilds public/assets/ on change. Ctrl+C to stop.
+         "label": "Assets: watch",
+         "type": "shell",
+         "command": "bun run dev",
+         "problemMatcher": [],
+         "isBackground": true,
+         "presentation": {
+            "reveal": "always",
+            "panel": "dedicated"
+         }
+      },
+      {
+         "label": "Assets: typecheck",
+         "type": "shell",
+         "command": "bun run typecheck",
+         "problemMatcher": "$tsc",
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Assets: install",
+         "type": "shell",
+         "command": "bun install",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
       // ─── Composite ──────────────────────────────────────────
       {
          // Matches what pre-push runs — "Test: integration" deliberately
@@ -158,7 +213,8 @@
          "dependsOn": [
             "Lint: check",
             "Test: unit",
-            "Static analysis: PHPStan"
+            "Static analysis: PHPStan",
+            "Architecture: Deptrac"
          ],
          "dependsOrder": "sequence",
          "problemMatcher": []

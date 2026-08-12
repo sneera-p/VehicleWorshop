@@ -10,6 +10,10 @@ set -e
 echo "Running PHPStan..."
 vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
 
+# echo ""
+# echo "Running Deptrac..."
+# vendor/bin/deptrac analyse --config-file=tools/deptrac.php
+
 echo ""
 echo "Running PHPUnit (unit only — integration needs DB/Valkey running,"
 echo "which a push shouldn't assume; run that suite manually or in CI)..."
