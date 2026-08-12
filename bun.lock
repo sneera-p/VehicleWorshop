@@ -7,9 +7,9 @@
          "devDependencies": {
             "@types/bun": "^1.3.14",
             "sass": "^1.102.0",
-            "typescript": "^7.0.2",
-         },
-      },
+            "typescript": "^7.0.2"
+         }
+      }
    },
    "packages": {
       "@parcel/watcher": [
@@ -474,6 +474,6 @@
          "",
          {},
          "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="
-      ],
+      ]
    }
 }
