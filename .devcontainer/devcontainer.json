@@ -17,6 +17,8 @@
       "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
    ],
 
+   "postCreateCommand": "git config core.hooksPath .githooks && chmod +x .githooks/*",
+
    "forwardPorts": [9003],
    "portsAttributes": {
       "80": {
