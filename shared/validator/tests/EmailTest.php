@@ -29,6 +29,9 @@ final class EmailTest extends TestCase
         $this->assertFalse($this->rule->passes($email));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
     public static function validEmails(): array
     {
         return [
@@ -38,6 +41,9 @@ final class EmailTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
     public static function invalidEmails(): array
     {
         return [
