@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Validator;
+namespace Vwork\Shared\Validator;
 
 interface Rule
 {

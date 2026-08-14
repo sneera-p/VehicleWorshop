@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Validator\Tests;
+namespace Vwork\Shared\Validator\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Vwork\Validator\Rules\Email;
+use Vwork\Shared\Validator\Rules\Email;
 
 final class EmailTest extends TestCase
 {

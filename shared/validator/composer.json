@@ -6,12 +6,12 @@
    },
    "autoload": {
       "psr-4": {
-         "Vwork\\Validator\\": "src/"
+         "Vwork\\Shared\\Validator\\": "src/"
       }
    },
    "autoload-dev": {
       "psr-4": {
-         "Vwork\\Validator\\Tests\\": "tests/"
+         "Vwork\\Shared\\Validator\\Tests\\": "tests/"
       }
    },
    "type": "library",

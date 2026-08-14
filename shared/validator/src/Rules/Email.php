@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Validator\Rules;
+namespace Vwork\Shared\Validator\Rules;
 
-use Vwork\Validator\Rule;
+use Vwork\Shared\Validator\Rule;
 
 final class Email implements Rule
 {

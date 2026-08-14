@@ -1,0 +1,10 @@
+includes:
+   - ../vendor/phpat/phpat/extension.neon
+
+parameters:
+   level: 0
+
+   paths:
+      - ../tests/architecture
+
+   tmpDir: ../var/cache/phpstan

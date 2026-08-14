@@ -7,7 +7,7 @@
    // extension set entirely.
    "version": "2.0.0",
    "tasks": [
-      // ─── Lint ───────────────────────────────────────────────
+      // ────── Lint ──────
       {
          "label": "Lint: fix",
          "type": "shell",
@@ -33,7 +33,7 @@
          }
       },
 
-      // ─── Test ───────────────────────────────────────────────
+      // ────── Test ──────
       {
          "label": "Test: unit",
          "type": "shell",
@@ -57,7 +57,7 @@
          }
       },
 
-      // ─── Static analysis ────────────────────────────────────
+      // ────── Static analysis ──────
       {
          "label": "Static analysis: PHPStan",
          "type": "shell",
@@ -68,18 +68,28 @@
             "panel": "shared"
          }
       },
-      // {
-      //    "label": "Architecture: Deptrac",
-      //    "type": "shell",
-      //    "command": "vendor/bin/deptrac analyse --config-file=deptrac.php",
-      //    "problemMatcher": [],
-      //    "presentation": {
-      //       "reveal": "always",
-      //       "panel": "shared"
-      //    }
-      // },
+      {
+         "label": "Architecture: Deptrac",
+         "type": "shell",
+         "command": "vendor/bin/deptrac analyse --config-file=tools/deptrac.php",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Architecture: phpat",
+         "type": "shell",
+         "command": "vendor/bin/phpstan analyse --configuration=tools/phpat.neon",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
 
-      // ─── Composer ───────────────────────────────────────────
+      // ────── Composer ──────
       {
          "label": "Composer: install",
          "type": "shell",
@@ -121,7 +131,7 @@
          }
       },
 
-      // ─── Docker (dev stack only — prod tasks dropped) ──────
+      // ────── Docker (dev stack only) ──────
       {
          // Attached, not detached (-d) — streams all services' logs live.
          // Never completes on its own; Ctrl+C or "Docker: down" to stop.
@@ -159,7 +169,7 @@
          }
       },
 
-      // ─── Assets (Bun + Sass) ────────────────────────────────
+      // ────── Assets (Bun + Sass) ──────
       {
          "label": "Assets: build",
          "type": "shell",
@@ -204,7 +214,7 @@
          }
       },
 
-      // ─── Composite ──────────────────────────────────────────
+      // ────── Composite ──────
       {
          // Matches what pre-push runs — "Test: integration" deliberately
          // excluded, same reasoning: it needs the stack running, and this
@@ -214,10 +224,26 @@
             "Lint: check",
             "Test: unit",
             "Static analysis: PHPStan",
-            "Architecture: Deptrac"
+            "Architecture: Deptrac",
+            "Architecture: phpat"
          ],
          "dependsOrder": "sequence",
+
          "problemMatcher": []
+      },
+      {
+         "label": "Clean Project Dependencies",
+         "type": "shell",
+         "command": "Remove-Item -Recurse -Force vendor, node_modules, public/assets",
+         "problemMatcher": [],
+         "presentation": {
+            "echo": true,
+            "reveal": "always",
+            "focus": false,
+            "panel": "shared",
+            "showReuseMessage": true,
+            "clear": false
+         }
       }
    ]
 }
