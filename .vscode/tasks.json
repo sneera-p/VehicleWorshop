@@ -214,7 +214,65 @@
          }
       },
 
+      // ────── Git ──────
+      {
+         "label": "Git: add all",
+         "type": "shell",
+         "command": "git add --all",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         // Runs in the integrated terminal so `git commit` can open
+         // $EDITOR (or git's built-in default) interactively.
+         "label": "Git: commit",
+         "type": "shell",
+         "command": "git commit",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Git: push",
+         "type": "shell",
+         "command": "git push",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         "label": "Git: switch",
+         "type": "shell",
+         "command": "git switch ${input:gitSwitchBranch}",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+
       // ────── Composite ──────
+      {
+         // Restarts the 2 dev main processes (bun/sass watcher +
+         // FrankenPHP) inside the running container without restarting
+         // the container — dev.start.sh auto-detects that FrankenPHP is
+         // already up and reloads instead of starting fresh.
+         "label": "Restart dev server",
+         "type": "shell",
+         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml exec app sh dev.start.sh",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
       {
          // Matches what pre-push runs — "Test: integration" deliberately
          // excluded, same reasoning: it needs the stack running, and this
@@ -244,6 +302,13 @@
             "showReuseMessage": true,
             "clear": false
          }
+      }
+   ],
+   "inputs": [
+      {
+         "id": "gitSwitchBranch",
+         "type": "promptString",
+         "description": "Branch to switch to"
       }
    ]
 }
