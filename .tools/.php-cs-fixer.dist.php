@@ -8,11 +8,11 @@
 //
 // Run (from repo root — config must be pointed at explicitly since this
 // file no longer lives in the directory PHP CS Fixer auto-discovers from):
-//   vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php
+//   vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php
 // Check without modifying (e.g. in CI):
-//   vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php --dry-run --diff
+//   vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff
 
-// __DIR__ now resolves to tools/, not repo root — the Finder needs to be
+// __DIR__ now resolves to .tools/, not repo root — the Finder needs to be
 // pointed at the parent directory explicitly to still scan the whole repo.
 $finder = (new PhpCsFixer\Finder())
    ->in(__DIR__ . '/..')

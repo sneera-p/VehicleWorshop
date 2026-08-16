@@ -8,19 +8,19 @@
 set -e
 
 echo "Running PHPStan..."
-vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 
 echo ""
 echo "Running Deptrac..."
-vendor/bin/deptrac analyse --config-file=tools/deptrac.php
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
 
 echo ""
 echo "Running phpat..."
-vendor/bin/phpstan analyse --configuration=tools/phpat.neon
+vendor/bin/phpstan analyse --configuration=.tools/phpat.neon
 
 echo ""
 echo "Running PHPUnit (unit only — integration needs DB/Valkey running,"
 echo "which a push shouldn't assume; run that suite manually or in CI)..."
-vendor/bin/phpunit --configuration=tools/phpunit.xml.dist --testsuite=unit
+vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit
 
 exit 0

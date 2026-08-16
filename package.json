@@ -9,8 +9,8 @@
       "dev:ts": "bun build app/resources/ts/*.ts --outdir public/assets --watch --target browser",
       "dev:css": "sass --watch app/resources/scss:public/assets --style=expanded",
       "dev": "bun run dev:ts & bun run dev:css",
-      "typecheck": "tsc -p tools/tsconfig.json && tsc -p tools/tsconfig.test.json",
-      "test:e2e": "playwright test --config=tools/playwright.config.ts"
+      "typecheck": "tsc -p .tools/tsconfig.json && tsc -p .tools/tsconfig.test.json",
+      "test:e2e": "playwright test --config=.tools/playwright.config.ts"
    },
    "devDependencies": {
       "@types/bun": "^1.3.14",

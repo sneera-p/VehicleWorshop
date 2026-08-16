@@ -2,7 +2,7 @@
    // Debugger configurations. Press F5 or use the Run & Debug panel.
    //
    // Requires Xdebug, which the Dockerfile's `dev` stage installs and
-   // configures (see docker/Dockerfile). Xdebug is set to
+   // configures (see .docker/Dockerfile). Xdebug is set to
    // start_with_request=trigger, so it stays dormant until a debug session
    // actually triggers it — no performance hit on normal dev requests.
    //

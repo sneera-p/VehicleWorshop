@@ -5,7 +5,7 @@ node_modules/
 # Environment & Secrets
 **/.env
 **/.env.*
-!docker/.env
+!.docker/.env
 *.pem
 *.key
 *.crt

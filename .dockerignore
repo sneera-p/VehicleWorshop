@@ -9,12 +9,12 @@
 .devcontainer/
 .githooks/
 .vscode/
-docker/
+.docker/
 docs/
 vendor/
 node_modules/
 public/assets/
-# tools/ - needed for tsc
+# .tools/ - needed for tsc
 var/
 
 README.md

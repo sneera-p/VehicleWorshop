@@ -13,9 +13,10 @@ services:
       volumes:
          - ..:/app
          - /app/vendor
+         - /app/node_modules
       restart: "no"
 
    playwright:
       volumes:
          - ../tests/e2e:/app/tests/e2e
-         - ../tools/:/app/tools
+         - ../.tools/:/app/.tools

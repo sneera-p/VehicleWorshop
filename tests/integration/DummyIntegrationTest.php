@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Placeholder — proves the "integration" testsuite is wired correctly
- * end-to-end (tools/phpunit.xml.dist -> this directory -> a passing run),
+ * end-to-end (.tools/phpunit.xml.dist -> this directory -> a passing run),
  * same as EmailTest did for the "unit" suite. Replace with real tests once
  * there's a module to integration-test against.
  *

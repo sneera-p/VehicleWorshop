@@ -1,7 +1,7 @@
 {
    "name": "Vehicle Workshop - dev",
    "dockerComposeFile": [
-      "../docker/docker-compose.dev.yml"
+      "../.docker/docker-compose.dev.yml"
    ],
 
    "service": "app",

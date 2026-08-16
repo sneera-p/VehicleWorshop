@@ -23,10 +23,10 @@ echo "Checking PSR-12 compliance on staged PHP files..."
 # if a file has both staged and unstaged changes, fixing "the
 # file" and re-staging it would silently stage the unstaged parts too,
 # not just the fix. Failing with instructions is safer than being clever.
-if ! vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php --dry-run --diff $STAGED_PHP_FILES; then
+if ! vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff $STAGED_PHP_FILES; then
    echo ""
    echo "PSR-12 violations found in staged files. Fix with:"
-   echo "  vendor/bin/php-cs-fixer fix --config=tools/.php-cs-fixer.dist.php"
+   echo "  vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php"
    echo "then re-stage and commit again."
    exit 1
 fi

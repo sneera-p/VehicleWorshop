@@ -4,7 +4,7 @@ include:
    - ./docker-compose.yml
 
 # Adds playwright to the prod stack (app + db + cache), for standalone e2e
-# runs against a prod build: `docker compose -f docker/docker-compose.yml -f docker/docker-compose.e2e.yml up`
+# runs against a prod build: `docker compose -f .docker/docker-compose.yml -f .docker/docker-compose.e2e.yml up`
 #
 # No bind mounts here — tests/e2e + playwright.config.ts are baked into the
 # `playwright` image stage at build time. docker-compose.dev.yml adds
@@ -27,7 +27,7 @@ services:
    playwright:
       build:
          context: ..
-         dockerfile: ./docker/Dockerfile
+         dockerfile: ./.docker/Dockerfile
          target: playwright
       working_dir: /app
       environment:

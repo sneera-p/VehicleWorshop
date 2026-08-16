@@ -66,7 +66,7 @@ RUN bun install --frozen-lockfile
 # CMD ["bun","run","dev","&","frankenphp",...] — exec-form CMD never invokes a shell
 RUN chmod +x ./dev.start.sh
 
-CMD [ "sh", "dev.start.sh"]
+CMD ["sh", "dev.start.sh"]
 
 
 
@@ -82,7 +82,7 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
-COPY tools/tsconfig*.json ./tools/
+COPY .tools/tsconfig*.json ./.tools/
 COPY app/resources/ts ./app/resources/ts
 COPY app/resources/scss ./app/resources/scss
 
@@ -107,7 +107,7 @@ COPY --from=oven/bun:1.3-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b011472
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
-COPY tools/playwright.config.ts tools/tsconfig.base.json tools/tsconfig.test.json ./tools/
+COPY .tools/playwright.config.ts .tools/tsconfig.base.json .tools/tsconfig.test.json ./.tools/
 COPY tests/e2e ./tests/e2e
 
 CMD [ "tail", "-f", "/dev/null" ]
@@ -127,7 +127,7 @@ COPY --exclude=app/resources/ts \
    --exclude=app/resources/scss \
    --exclude=package.json \
    --exclude=bun.lock* \
-   --exclude=tools \
+   --exclude=.tools \
    --exclude=dev.start.sh \
    . .
 

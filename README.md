@@ -63,11 +63,12 @@ vehicle-workshop/
 │
 ├── tests/                     # Unit (per module) + Integration (cross-module)
 │
-├── tools/
-│   ├── deptrac.yaml           # Architecture boundary enforcement
+├── .tools/
+│   ├── deptrac.php            # Architecture boundary enforcement
 │   └── phpstan.neon           # Static analysis at max level
 │
-├── docker-compose.yml
+├── .docker/
+│   └── docker-compose.yml
 └── composer.json
 ```
 
@@ -94,7 +95,7 @@ cp config/.env.example config/.env
 ### 2. Start Infrastructure
 
 ```bash
-docker compose up -d
+docker compose -f .docker/docker-compose.yml up -d
 # Starts: PHP-FPM, Nginx, PostgreSQL, Valkey
 ```
 
@@ -135,8 +136,8 @@ Cross-module communication follows strict rules enforced by Deptrac:
 Run enforcement:
 
 ```bash
-vendor/bin/deptrac analyse --config=tools/deptrac.yaml
-vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 ```
 
 ## Key Architectural Decisions
@@ -161,10 +162,10 @@ vendor/bin/phpunit --testsuite=unit
 vendor/bin/phpunit --testsuite=integration
 
 # Architecture enforcement
-vendor/bin/deptrac analyse --config=tools/deptrac.yaml
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
 
 # Static analysis
-vendor/bin/phpstan analyse --configuration=tools/phpstan.neon
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 
 # Mutation testing
 vendor/bin/infection --min-msi=80
