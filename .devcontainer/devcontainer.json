@@ -1,7 +1,6 @@
 {
    "name": "Vehicle Workshop - dev",
    "dockerComposeFile": [
-      "../docker/docker-compose.yml",
       "../docker/docker-compose.dev.yml"
    ],
 
@@ -50,6 +49,7 @@
             "mrmlnc.vscode-scss",
             // linters
             "dbaeumer.vscode-eslint",
+            "ms-playwright.playwright",
             "davidanson.vscode-markdownlint",
             "foxundermoon.shell-format",
             // debug

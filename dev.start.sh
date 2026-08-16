@@ -16,21 +16,18 @@ start() {
    # container's main process, so it receives `docker stop`'s SIGTERM
    # directly and shuts down cleanly — same as before this script existed.
    #
-   # Trade-off, stated plainly: exec-ing frankenphp means the backgrounded
-   # bun process above doesn't get an explicit shutdown signal — it's
-   # orphaned when frankenphp exits. Acceptable for a dev-only container
-   # that gets torn down wholesale by `docker compose down` anyway; not a
-   # pattern to carry into anything that needs precise multi-process
-   # shutdown guarantees.
+   # Trade-off, backgrounded bun process above doesn't get an explicit shutdown signal —
+   # it's orphaned when frankenphp exits. Acceptable for a dev-only container
+   # that gets torn down wholesale by `docker compose down` anyway
 
    # --watch enables HMR-like reload for SSE/stream development
-   exec frankenphp run --config /app/config/Caddyfile --watch
+   exec frankenphp run --config /app/config/Caddyfile.dev --watch
 }
 
 restart() {
    # FrankenPHP is PID 1 here (see start(), above) — reload rather than
    # kill, so the container survives.
-   frankenphp reload --config /app/config/Caddyfile
+   frankenphp reload --config /app/config/Caddyfile.dev
 
    # bun/sass watchers: no reload signal exists for `bun build --watch`
    # or `sass --watch` — they already pick up file changes live on their

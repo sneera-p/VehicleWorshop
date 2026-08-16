@@ -33,6 +33,11 @@ EXPOSE 80
 # ===============================
 FROM base AS dev
 
+# netcat: dev-only debugging aid (port/connectivity checks). Not needed in prod.
+RUN apt-get update \
+   && apt-get install -y --no-install-recommends netcat-traditional \
+   && rm -rf /var/lib/apt/lists/*
+
 # Xdebug is dev-only — it carries a significant runtime performance cost and
 # must never ship to production. Installed but idle by default: it only
 # activates when a debug session triggers it (start_with_request=trigger),
@@ -77,11 +82,35 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
-COPY tsconfig.json ./
+COPY tools/tsconfig*.json ./tools/
 COPY app/resources/ts ./app/resources/ts
 COPY app/resources/scss ./app/resources/scss
 
 RUN bun run build
+
+
+
+# ===============================
+# E2E Testing (Playwright + Bun)
+# ===============================
+# Microsoft's image brings the browsers + their system deps; Bun is copied
+# in the same way as the `assets` stage above since this image has no
+# package manager for the project's bun.lock. Only what playwright.config.ts
+# + the e2e suite need is copied in — not the whole repo.
+FROM mcr.microsoft.com/playwright:v1.62.1-noble AS playwright
+
+WORKDIR /app
+
+COPY --from=oven/bun:1.3-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b0114720a0277a8f939ae4dfc9db6f \
+   /usr/local/bin/bun /usr/local/bin/bun
+
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+
+COPY tools/playwright.config.ts tools/tsconfig.base.json tools/tsconfig.test.json ./tools/
+COPY tests/e2e ./tests/e2e
+
+CMD [ "tail", "-f", "/dev/null" ]
 
 
 
@@ -98,7 +127,7 @@ COPY --exclude=app/resources/ts \
    --exclude=app/resources/scss \
    --exclude=package.json \
    --exclude=bun.lock* \
-   --exclude=tsconfig.json \
+   --exclude=tools \
    --exclude=dev.start.sh \
    . .
 

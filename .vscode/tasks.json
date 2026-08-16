@@ -32,7 +32,6 @@
             "panel": "shared"
          }
       },
-
       // ────── Test ──────
       {
          "label": "Test: unit",
@@ -45,8 +44,8 @@
          }
       },
       {
-         // Needs `docker compose up` running first — connects to the real
-         // Postgres/Valkey, unlike "Test: unit".
+         // Needs "Docker: up" running first — connects to the real
+         // db/cache, unlike "Test: unit".
          "label": "Test: integration",
          "type": "shell",
          "command": "vendor/bin/phpunit --configuration=tools/phpunit.xml.dist --testsuite=integration",
@@ -56,7 +55,19 @@
             "panel": "shared"
          }
       },
-
+      {
+         // Host-only, like the "Docker: *" tasks below — run from a
+         // terminal not attached to the devcontainer. Needs "Docker: up"
+         // running first.
+         "label": "Test: e2e",
+         "type": "shell",
+         "command": "docker compose -f docker/docker-compose.dev.yml exec playwright bun run test:e2e",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
       // ────── Static analysis ──────
       {
          "label": "Static analysis: PHPStan",
@@ -88,7 +99,6 @@
             "panel": "shared"
          }
       },
-
       // ────── Composer ──────
       {
          "label": "Composer: install",
@@ -130,14 +140,15 @@
             "panel": "shared"
          }
       },
-
-      // ────── Docker (dev stack only) ──────
+      // ────── Docker (host-only — run from a terminal not attached to the devcontainer) ──────
+      // docker-compose.dev.yml includes everything (app + db + cache +
+      // playwright) — same file the devcontainer itself uses to launch.
       {
          // Attached, not detached (-d) — streams all services' logs live.
          // Never completes on its own; Ctrl+C or "Docker: down" to stop.
          "label": "Docker: up",
          "type": "shell",
-         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up",
+         "command": "docker compose -f docker/docker-compose.dev.yml up",
          "problemMatcher": [],
          "isBackground": true,
          "presentation": {
@@ -148,7 +159,7 @@
       {
          "label": "Docker: down",
          "type": "shell",
-         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml down",
+         "command": "docker compose -f docker/docker-compose.dev.yml down",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -161,14 +172,13 @@
          // "Docker: up" above, which already streams everything.
          "label": "Docker: app logs",
          "type": "shell",
-         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml logs -f app",
+         "command": "docker compose -f docker/docker-compose.dev.yml logs -f app",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "dedicated"
          }
       },
-
       // ────── Assets (Bun + Sass) ──────
       {
          "label": "Assets: build",
@@ -213,7 +223,6 @@
             "panel": "shared"
          }
       },
-
       // ────── Git ──────
       {
          "label": "Git: add all",
@@ -257,7 +266,6 @@
             "panel": "shared"
          }
       },
-
       // ────── Composite ──────
       {
          // Restarts the 2 dev main processes (bun/sass watcher +
@@ -266,7 +274,7 @@
          // already up and reloads instead of starting fresh.
          "label": "Restart dev server",
          "type": "shell",
-         "command": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml exec app sh dev.start.sh",
+         "command": "docker compose -f docker/docker-compose.dev.yml exec app sh dev.start.sh",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -286,13 +294,25 @@
             "Architecture: phpat"
          ],
          "dependsOrder": "sequence",
-
          "problemMatcher": []
       },
       {
          "label": "Clean Project Dependencies",
          "type": "shell",
          "command": "Remove-Item -Recurse -Force vendor, node_modules, public/assets",
+         "windows": {
+            "command": "powershell",
+            "args": [
+               "-Command",
+               "Remove-Item -Recurse -Force 'vendor', 'node_modules', 'var', public/assets'"
+            ]
+         },
+         "osx": {
+            "command": "rm -rf 'vendor' 'node_modules' 'var' 'public/assets'"
+         },
+         "linux": {
+            "command": "rm -rf 'vendor' 'node_modules' 'var' 'public/assets'"
+         },
          "problemMatcher": [],
          "presentation": {
             "echo": true,

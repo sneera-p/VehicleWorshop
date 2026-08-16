@@ -14,9 +14,8 @@ docs/
 vendor/
 node_modules/
 public/assets/
-tools/
+# tools/ - needed for tsc
 var/
-
 
 README.md
 .editorconfig

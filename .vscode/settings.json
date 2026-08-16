@@ -51,5 +51,14 @@
    },
    "[jsonc]": {
       "editor.tabSize": 3
+   },
+
+   // extend file icons for docker-compose.[xxx].yml & Caddyfile.[xxx] etc.
+   "material-icon-theme.files.associations": {
+      "docker-compose.dev.yml": "docker",
+      "docker-compose.e2e.yml": "docker",
+      "Caddyfile.dev": "caddy",
+      "Caddyfile.prod": "caddy",
+      "phpat.neon": "phpstan"
    }
 }

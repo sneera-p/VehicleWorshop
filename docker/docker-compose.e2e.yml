@@ -1,0 +1,43 @@
+name: VehicleWorkshop
+
+include:
+   - ./docker-compose.yml
+
+# Adds playwright to the prod stack (app + db + cache), for standalone e2e
+# runs against a prod build: `docker compose -f docker/docker-compose.yml -f docker/docker-compose.e2e.yml up`
+#
+# No bind mounts here — tests/e2e + playwright.config.ts are baked into the
+# `playwright` image stage at build time. docker-compose.dev.yml adds
+# bind mounts on top of this for live-editing specs without a rebuild.
+#
+# Networks (on top of docker-compose.yml's app_net/data_net):
+#   test_net — app, playwright. Internal; playwright talks to app here.
+
+services:
+   app:
+      networks:
+         test_net:
+            # Chromium refuses to navigate to single-label hostnames (treats
+            # them as search-bar queries, not real hosts) — "app" alone
+            # fails with ERR_CONNECTION_REFUSED even though DNS/TCP work
+            # fine. The dotted alias below is what BASE_URL points at.
+            aliases:
+               - app.local
+
+   playwright:
+      build:
+         context: ..
+         dockerfile: ./docker/Dockerfile
+         target: playwright
+      working_dir: /app
+      environment:
+         BASE_URL: http://app.local
+      depends_on:
+         app:
+            condition: service_healthy
+      networks:
+         - test_net
+
+networks:
+   test_net:
+      driver: bridge
