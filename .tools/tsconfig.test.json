@@ -7,7 +7,8 @@
       "types": [
          "@types/bun",
          "@types/node"
-      ]
+      ],
+      "tsBuildInfoFile": "../var/cache/tsconfig.test.tsbuildinfo"
    },
    "include": [
       "../tests/e2e/**/*.ts",

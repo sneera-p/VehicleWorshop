@@ -10,7 +10,8 @@
          "@/*": [
             "../app/resources/ts/*"
          ]
-      }
+      },
+      "tsBuildInfoFile": "../var/cache/tsconfig.tsbuildinfo"
    },
    "include": [
       "../app/resources/ts/**/*.ts",
