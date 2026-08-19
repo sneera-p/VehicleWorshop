@@ -1,10 +1,21 @@
 {
-   frankenphp
-   admin off
+	frankenphp
 }
 
 :80 {
-   root * /app/public
-   header /*.{css,js} Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
-   php_server
+	route {
+		@assets {
+			path /assets/*
+		}
+
+		file_server @assets {
+			root /app/public
+		}
+
+		rewrite index.php
+		php {
+			root /app/public
+			resolve_root_symlink false
+		}
+	}
 }

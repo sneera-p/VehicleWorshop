@@ -274,7 +274,7 @@
          // already up and reloads instead of starting fresh.
          "label": "Restart dev server",
          "type": "shell",
-         "command": "docker compose -f .docker/docker-compose.dev.yml exec app sh dev.start.sh",
+         "command": "sh dev.start.sh",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",

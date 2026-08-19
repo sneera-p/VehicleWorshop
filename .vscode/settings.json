@@ -24,8 +24,8 @@
    // silently falls back to searching the workspace root for a config
    // file that no longer lives there (moved to .tools/) and would run with
    // unconfigured defaults instead of PSR-12, with no visible warning.
-   "php-cs-fixer.executablePath": "vendor/bin/php-cs-fixer",
-   "php-cs-fixer.config": ".tools/.php-cs-fixer.dist.php",
+   "php-cs-fixer.executablePath": "/app/vendor/bin/php-cs-fixer",
+   "php-cs-fixer.config": "/app/.tools/.php-cs-fixer.dist.php",
 
    // Version-appropriate diagnostics/suggestions from Intelephense, matching
    // the "php": "^8.5" constraint in composer.json.
@@ -60,5 +60,7 @@
       "Caddyfile.dev": "caddy",
       "Caddyfile.prod": "caddy",
       "phpat.neon": "phpstan"
-   }
+   },
+
+   "remote.autoForwardPortsFallback": 0
 }
