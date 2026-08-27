@@ -15,7 +15,7 @@ return static function (DeptracConfig $config): void {
             '../web',
             '../worker',
             '../console',
-            '../tests',
+            '../test',
         )
         ->cacheFile('.var/cache/deptrac/deptrac.cache')
         ->excludeFiles(
