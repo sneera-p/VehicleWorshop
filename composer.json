@@ -5,15 +5,32 @@
    "repositories": [
       {
          "type": "path",
-         "url": "shared/*"
+         "url": "shared"
       },
       {
          "type": "path",
-         "url": "modules/*"
+         "url": "domain"
+      },
+      {
+         "type": "path",
+         "url": "web"
+      },
+      {
+         "type": "path",
+         "url": "worker"
+      },
+      {
+         "type": "path",
+         "url": "console"
       }
    ],
    "require": {
-      "php": "^8.5"
+      "php": "^8.5",
+      "vwork/shared": "*",
+      "vwork/domain": "*",
+      "vwork/web": "*",
+      "vwork/worker": "*",
+      "vwork/console": "*"
    },
    "require-dev": {
       "deptrac/deptrac": "^4.7",
@@ -21,11 +38,6 @@
       "phpat/phpat": "^0.12.4",
       "phpstan/phpstan": "^2.2",
       "phpunit/phpunit": "^13.3"
-   },
-   "autoload": {
-      "psr-4": {
-         "Vwork\\App\\": "app/"
-      }
    },
    "license": "proprietary",
    "authors": [

@@ -4,42 +4,52 @@
    xsi:noNamespaceSchemaLocation="../vendor/phpunit/phpunit/phpunit.xsd"
    bootstrap="../vendor/autoload.php"
    colors="true"
-   cacheDirectory="../var/cache/phpunit"
+   cacheDirectory="../.var/cache/phpunit"
 >
    <!--
       Tests are discovered by directory, not by Composer autoload-dev
-      namespace. This matters: each package's own composer.json declares
-      its own autoload-dev (e.g. shared/validator's "Vwork\Validator\Tests\"),
-      but Composer only merges the ROOT project's autoload-dev — a
-      dependency's autoload-dev, like its require-dev, is ignored entirely.
-      Pointing PHPUnit straight at each package's tests/ folder sidesteps
-      that limitation rather than duplicating every namespace here too.
-
-      Unlike PHPStan's "paths" (which requires literal directories), these
-      <directory> elements DO support wildcards — PHPUnit expands them
-      itself, so shared/*/tests correctly picks up every package.
+      namespace — Composer only merges the ROOT project's autoload-dev,
+      never a path-repo dependency's. Pointing PHPUnit straight at each
+      package's test/ folder sidesteps that rather than duplicating every
+      namespace here too.
    -->
    <testsuites>
       <testsuite name="unit">
-         <directory>../shared/*/tests</directory>
-         <directory>../modules/*/tests</directory>
+         <directory>../shared/*/test</directory>
+         <directory>../domain/infrastructure/test</directory>
+         <directory>../domain/modules/test</directory>
+         <directory>../web/test/Unit</directory>
+         <directory>../worker/test/Unit</directory>
+         <directory>../console/test/Unit</directory>
       </testsuite>
       <!--
-         Cross-module, requires a running DB/Valkey (docker compose up),
-         unlike "unit" above. Lives at the top level rather than inside any
-         single package's tests/, since an integration test by definition
-         isn't scoped to one package. Never run from pre-commit/pre-push —
-         a push shouldn't assume the stack happens to be running.
+         Real Postgres + Valkey, infrastructure and modules exercised
+         together — lives at domain/'s own root since it's testing the
+         seam between infrastructure/ and modules/, not either alone.
       -->
       <testsuite name="integration">
-         <directory>../tests/integration</directory>
+         <directory>../domain/test</directory>
+         <directory>../web/test/Integration</directory>
+         <directory>../worker/test/Integration</directory>
+         <directory>../console/test/Integration</directory>
+      </testsuite>
+      <!--
+         Root test/e2e only — the cross-process suite (web publishes,
+         worker reacts). web/test/e2e (Playwright) runs via its own
+         `bun run test:e2e`, not through PHPUnit.
+      -->
+      <testsuite name="e2e">
+         <directory>../test/e2e</directory>
       </testsuite>
    </testsuites>
 
    <source>
       <include>
-         <directory>../shared/*/src</directory>
-         <directory>../modules/*/src</directory>
+         <directory>../shared/src</directory>
+         <directory>../domain/src</directory>
+         <directory>../web/src</directory>
+         <directory>../worker/src</directory>
+         <directory>../console/src</directory>
       </include>
    </source>
 </phpunit>

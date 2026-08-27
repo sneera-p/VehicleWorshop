@@ -1,0 +1,21 @@
+{
+   "name": "vwork/console",
+   "description": "Console interface for Vehicle Workshop Management System",
+   "type": "project",
+   "require": {
+      "php": "^8.5"
+   },
+   "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Console\\": "src/"
+      }
+   },
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev"
+}

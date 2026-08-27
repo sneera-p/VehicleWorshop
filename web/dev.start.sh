@@ -21,13 +21,13 @@ start() {
    # that gets torn down wholesale by `docker compose down` anyway
 
    # --watch enables HMR-like reload for SSE/stream development
-   exec frankenphp run --config /app/config/Caddyfile.dev --watch
+   exec frankenphp run --config /app/web/config/Caddyfile.dev --watch
 }
 
 restart() {
    # FrankenPHP is PID 1 here (see start(), above) — reload rather than
    # kill, so the container survives.
-   frankenphp reload --config /app/config/Caddyfile.dev
+   frankenphp reload --config /app/web/config/Caddyfile.dev
 
    # bun/sass watchers: no reload signal exists for `bun build --watch`
    # or `sass --watch` — they already pick up file changes live on their
@@ -37,6 +37,7 @@ restart() {
    pkill -f "bun (run|build) dev|sass --watch" 2>/dev/null || true
    cd /app && nohup bun run dev >/proc/1/fd/1 2>/proc/1/fd/2 &
 }
+
 
 # No args (container entrypoint) → start. "restart" → restart in place.
 # Auto-detected either way: if FrankenPHP's already up, always restart,

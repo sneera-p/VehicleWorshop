@@ -4,7 +4,7 @@
       "../.docker/docker-compose.dev.yml"
    ],
 
-   "service": "app",
+   "service": "web",
    "shutdownAction": "stopCompose",
    "overrideCommand": false,
 
@@ -36,7 +36,7 @@
             // docker & docker-compose validation
             "ms-azuretools.vscode-containers",
             // database client
-            "cweijan.dbclient-jdbc",
+            "cweijan.vscode-database-client2",
             // git
             "eamodio.gitlens",
             // editor-tools
@@ -44,6 +44,7 @@
             "ionutvmi.path-autocomplete",
             // dev-tools
             "junstyle.php-cs-fixer",
+            "devsense.composer-php-vscode",
             "bmewburn.vscode-intelephense-client",
             "ecmel.vscode-html-css",
             "mrmlnc.vscode-scss",
@@ -52,8 +53,11 @@
             "ms-playwright.playwright",
             "davidanson.vscode-markdownlint",
             "foxundermoon.shell-format",
+            "sanderronde.phpstan-vscode",
+            "mikestead.dotenv",
             // debug
-            "xdebug.php-debug"
+            "xdebug.php-debug",
+            "calebporzio.better-phpunit"
          ],
 
          "settings": {

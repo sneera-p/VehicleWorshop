@@ -7,7 +7,7 @@
       "moduleResolution": "bundler",
       "moduleDetection": "force",
       "types": [
-         "@types/bun",
+         "@types/bun"
       ],
       "strict": true,
       "noUncheckedIndexedAccess": true,
@@ -19,5 +19,13 @@
       "isolatedModules": true,
       "skipLibCheck": true,
       "verbatimModuleSyntax": true
-   }
+   },
+   "references": [
+      {
+         "path": "resources/ts"
+      },
+      {
+         "path": "test/e2e"
+      }
+   ]
 }

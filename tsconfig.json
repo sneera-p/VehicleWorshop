@@ -1,9 +1,9 @@
 {
-   // This is here to avoid the linter from using .tools/tsconfig.base.json
-   // as the reference for the vscode extension
+   // This is here to avoid the linter from using one tsconfig.json as the reference for the vscode extension
    "files": [],
    "references": [
-      { "path": "./.tools/tsconfig.json" },
-      { "path": "./.tools/tsconfig.test.json" }
+      {
+         "path": "./web"
+      }
    ]
 }

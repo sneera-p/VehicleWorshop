@@ -1,7 +1,6 @@
 parameters:
-   # No framework — see README's "Why Pure PHP" section. No framework
-   # extension/stubs needed as a result (unlike a Laravel/Doctrine project,
-   # which would need larastan/phpstan-doctrine to avoid false positives).
+   # No framework — see README's "no framework" section. No framework
+   # extension/stubs needed as a result.
 
    # Fresh project, no legacy debt to fight — starting at the strictest
    # level rather than working up to it.
@@ -9,18 +8,19 @@ parameters:
 
    paths:
       - ../shared
-      - ../modules
+      - ../domain
+      - ../web
+      - ../worker
+      - ../console
 
-   # Points at the parent directories, not each package's src/ individually
-   # — PHPStan's "paths" doesn't expand wildcards like "shared/*/src" (that
-   # only works in "excludePaths"). Recursing from the parent also means
-   # new packages get analyzed automatically with no config edit needed.
-   #
-   # Add "../app" back to paths once that directory (and its App\ PSR-4
-   # entry in the root composer.json) actually exist — referencing a
-   # missing path makes PHPStan fail immediately, before analyzing anything.
+   # Points at each top-level folder, not each package's src/ individually
+   # — PHPStan's "paths" doesn't expand wildcards the way PHPUnit's
+   # <directory> elements do. Recursing from each top-level folder means
+   # new packages (a new domain/modules/*, say) get analyzed automatically
+   # with no config edit needed.
 
    excludePaths:
-      - ../public/assets/*
+      - ../web/public/assets/*
+      - ../web/node_modules/*
 
-   tmpDir: ../var/cache/phpstan
+   tmpDir: ../.var/cache/phpstan

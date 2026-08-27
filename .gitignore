@@ -11,7 +11,7 @@ node_modules/
 *.crt
 
 # Runtime & Generated Files
-/var/
+/.var/
 /tmp/
 *.cache
 *.log

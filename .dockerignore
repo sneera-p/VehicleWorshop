@@ -10,12 +10,12 @@
 .githooks/
 .vscode/
 .docker/
+.tools/
 docs/
 vendor/
 node_modules/
 public/assets/
-# .tools/ - needed for tsc
-var/
+.var/
 
 README.md
 .editorconfig

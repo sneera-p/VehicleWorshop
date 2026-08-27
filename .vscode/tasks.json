@@ -7,11 +7,17 @@
    // extension set entirely.
    "version": "2.0.0",
    "tasks": [
-      // ────── Lint ──────
+      // ##########################################
+      // ────────────────── Lint ──────────────────
+      // ##########################################
       {
          "label": "Lint: fix",
          "type": "shell",
-         "command": "vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php",
+         "command": "vendor/bin/php-cs-fixer",
+         "args": [
+            "fix",
+            "--config=.tools/.php-cs-fixer.dist.php"
+         ],
          "problemMatcher": [],
          "group": {
             "kind": "build",
@@ -25,18 +31,30 @@
       {
          "label": "Lint: check",
          "type": "shell",
-         "command": "vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff",
+         "command": "vendor/bin/php-cs-fixer",
+         "args": [
+            "fix",
+            "--config=.tools/.php-cs-fixer.dist.php",
+            "--dry-run",
+            "--diff"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "shared"
          }
       },
-      // ────── Test ──────
+      // ##########################################
+      // ────────────────── Test ──────────────────
+      // ##########################################
       {
          "label": "Test: unit",
          "type": "shell",
-         "command": "vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit",
+         "command": "vendor/bin/phpunit",
+         "args": [
+            "--configuration=.tools/phpunit.xml.dist",
+            "--testsuite=unit"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -44,11 +62,14 @@
          }
       },
       {
-         // Needs "Docker: up" running first — connects to the real
-         // db/cache, unlike "Test: unit".
+         // Needs "db + cache" running first — connects to the real db/cache, unlike "Test: unit".
          "label": "Test: integration",
          "type": "shell",
-         "command": "vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=integration",
+         "command": "vendor/bin/phpunit",
+         "args": [
+            "--configuration=.tools/phpunit.xml.dist",
+            "--testsuite=integration"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -56,23 +77,32 @@
          }
       },
       {
-         // Host-only, like the "Docker: *" tasks below — run from a
-         // terminal not attached to the devcontainer. Needs "Docker: up"
-         // running first.
+         // Host-only: run from a terminal not attached to the devcontainer
          "label": "Test: e2e",
          "type": "shell",
-         "command": "docker compose -f .docker/docker-compose.dev.yml exec playwright bun run test:e2e",
+         "command": "docker compose",
+         "args": [
+            "-f .docker/docker-compose.dev.yml",
+            "exec playwright",
+            "bun run test:e2e"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "shared"
          }
       },
-      // ────── Static analysis ──────
+      // ##########################################
+      // ───────────── Static analyse ─────────────
+      // ##########################################
       {
-         "label": "Static analysis: PHPStan",
+         "label": "Static Analyse: Types",
          "type": "shell",
-         "command": "vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon",
+         "command": "vendor/bin/phpstan",
+         "args": [
+            "analyse",
+            "--configuration=.tools/phpstan.neon"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -80,9 +110,13 @@
          }
       },
       {
-         "label": "Architecture: Deptrac",
+         "label": "Static Analyse: Layer",
          "type": "shell",
-         "command": "vendor/bin/deptrac analyse --config-file=.tools/deptrac.php",
+         "command": "vendor/bin/deptrac",
+         "args": [
+            "analyse",
+            "--config-file=.tools/deptrac.php"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -90,17 +124,26 @@
          }
       },
       {
-         "label": "Architecture: phpat",
+         "label": "Static Analyse: Architecture",
          "type": "shell",
-         "command": "vendor/bin/phpstan analyse --configuration=.tools/phpat.neon",
+         "command": "vendor/bin/phpstan",
+         "args": [
+            "analyse",
+            "--configuration=.tools/phpat.neon"
+         ],
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "shared"
          }
       },
-      // ────── Composer ──────
+      // ##########################################
+      // ──────────────── Composer ────────────────
+      // ##########################################
       {
+         // Root-level install — resolves shared/, domain/, web/, worker/, console/ together into ONE vendor/.
+         // Individual packages' own composer.json files are declarative only;
+         // their own`composer install` is never run directly in normal workflows.
          "label": "Composer: install",
          "type": "shell",
          "command": "composer install",
@@ -140,9 +183,11 @@
             "panel": "shared"
          }
       },
-      // ────── Docker (host-only — run from a terminal not attached to the devcontainer) ──────
-      // docker-compose.dev.yml includes everything (app + db + cache +
-      // playwright) — same file the devcontainer itself uses to launch.
+      // ##########################################
+      // ───────────────── Docker ─────────────────
+      // ##########################################
+      // Host-only: run from a terminal not attached to the devcontainer
+      // docker-compose.dev.yml includes everything (web + db + cache + worker + playwright) — same file the devcontainer itself uses to launch.
       {
          // Attached, not detached (-d) — streams all services' logs live.
          // Never completes on its own; Ctrl+C or "Docker: down" to stop.
@@ -167,19 +212,45 @@
          }
       },
       {
-         // Filtered view of just "app" — useful if the stack was started
+         // Filtered view of just "web" — useful if the stack was started
          // another way (e.g. the Dev Containers extension) rather than via
          // "Docker: up" above, which already streams everything.
-         "label": "Docker: app logs",
+         "label": "Docker: web logs",
          "type": "shell",
-         "command": "docker compose -f .docker/docker-compose.dev.yml logs -f app",
+         "command": "docker compose -f .docker/docker-compose.dev.yml logs -f web",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "dedicated"
          }
       },
-      // ────── Assets (Bun + Sass) ──────
+      {
+         "label": "Docker: worker logs",
+         "type": "shell",
+         "command": "docker compose -f .docker/docker-compose.dev.yml logs -f worker",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "dedicated"
+         }
+      },
+      {
+         // console/ has no container of its own — it shares worker's,
+         // already-running image. Prompts for the command name/args each
+         // run rather than hardcoding one, since this is the general-purpose
+         // entrypoint for every console command (migrate, staff:create, ...).
+         "label": "Console: run",
+         "type": "shell",
+         "command": "docker compose -f .docker/docker-compose.dev.yml exec worker php console/main.php ${input:consoleCommand}",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      // ###########################################
+      // ─────────── Assets (Bun + Sass) ───────────
+      // ###########################################
       {
          "label": "Assets: build",
          "type": "shell",
@@ -191,8 +262,8 @@
          }
       },
       {
-         // Never completes on its own — watches app/resources/{ts,scss}
-         // and rebuilds public/assets/ on change. Ctrl+C to stop.
+         // Never completes on its own — watches web/resources/{ts,scss}
+         // and rebuilds web/public/assets/ on change. Ctrl+C to stop.
          "label": "Assets: watch",
          "type": "shell",
          "command": "bun run dev",
@@ -214,6 +285,9 @@
          }
       },
       {
+         // Root install — resolves web/'s workspace deps into ONE
+         // node_modules/ at repo root. web/node_modules should never exist;
+         // see "Clean Project Dependencies" below if it ever does.
          "label": "Assets: install",
          "type": "shell",
          "command": "bun install",
@@ -223,7 +297,9 @@
             "panel": "shared"
          }
       },
-      // ────── Git ──────
+      // #########################################
+      // ────────────────── Git ──────────────────
+      // #########################################
       {
          "label": "Git: add all",
          "type": "shell",
@@ -266,7 +342,9 @@
             "panel": "shared"
          }
       },
-      // ────── Composite ──────
+      // ###########################################
+      // ──────────────── Composite ────────────────
+      // ###########################################
       {
          // Restarts the 2 dev main processes (bun/sass watcher +
          // FrankenPHP) inside the running container without restarting
@@ -274,7 +352,7 @@
          // already up and reloads instead of starting fresh.
          "label": "Restart dev server",
          "type": "shell",
-         "command": "sh dev.start.sh",
+         "command": "sh web/dev.start.sh",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
@@ -289,29 +367,31 @@
          "dependsOn": [
             "Lint: check",
             "Test: unit",
-            "Static analysis: PHPStan",
-            "Architecture: Deptrac",
-            "Architecture: phpat"
+            "Static Analyse: Types",
+            "Static Analyse: Layer",
+            "Static Analyse: Architecture",
          ],
          "dependsOrder": "sequence",
          "problemMatcher": []
       },
       {
+         // web/node_modules should never exist (workspaces hoist to root),
+         // but is cleaned here too in case a stale copy ever reappears —
+         // see the note on "Assets: install" above.
          "label": "Clean Project Dependencies",
          "type": "shell",
-         "command": "Remove-Item -Recurse -Force vendor, node_modules, public/assets",
          "windows": {
             "command": "powershell",
             "args": [
                "-Command",
-               "Remove-Item -Recurse -Force 'vendor', 'node_modules', 'var', public/assets'"
+               "Remove-Item -Recurse -Force 'vendor', 'node_modules', 'web/node_modules', '.var', 'web/public/assets'"
             ]
          },
          "osx": {
-            "command": "rm -rf 'vendor' 'node_modules' 'var' 'public/assets'"
+            "command": "rm -rf 'vendor' 'node_modules' 'web/node_modules' '.var' 'web/public/assets'"
          },
          "linux": {
-            "command": "rm -rf 'vendor' 'node_modules' 'var' 'public/assets'"
+            "command": "rm -rf 'vendor' 'node_modules' 'web/node_modules' '.var' 'web/public/assets'"
          },
          "problemMatcher": [],
          "presentation": {
@@ -329,6 +409,11 @@
          "id": "gitSwitchBranch",
          "type": "promptString",
          "description": "Branch to switch to"
+      },
+      {
+         "id": "consoleCommand",
+         "type": "promptString",
+         "description": "console/ command to run, e.g. \"migrate\" or \"staff:create --name=...\""
       }
    ]
 }

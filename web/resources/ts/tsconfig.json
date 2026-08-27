@@ -1,0 +1,21 @@
+{
+   "extends": "../../tsconfig.json",
+   "compilerOptions": {
+      "composite": true,
+      "lib": [
+         "ESNext",
+         "DOM",
+         "DOM.Iterable"
+      ],
+      "paths": {
+         "@/*": [
+            "./*"
+         ]
+      },
+      "tsBuildInfoFile": "../../../.var/cache/tsconfig.tsbuildinfo",
+      "outDir": "../../public/assets"
+   },
+   "include": [
+      "./**/*.ts"
+   ]
+}

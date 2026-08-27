@@ -1,0 +1,18 @@
+{
+   "extends": "../../tsconfig.json",
+   "compilerOptions": {
+      "composite": true,
+      "lib": [
+         "ESNext"
+      ],
+      "types": [
+         "@types/bun",
+         "@types/node",
+         "@playwright/test"
+      ],
+      "tsBuildInfoFile": "../../../.var/cache/tsconfig.test.tsbuildinfo"
+   },
+   "include": [
+      "./**/*.ts"
+   ]
+}

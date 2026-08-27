@@ -16,10 +16,19 @@
       {
          // Primary workflow: start this, then load a page in the browser.
          // Xdebug connects back and breakpoints hit.
-         "name": "Listen for Xdebug",
+         "name": "Listen for Xdebug (web)",
          "type": "php",
          "request": "launch",
          "port": 9003,
+         "skipFiles": [
+            "**/vendor/**/*.php"
+         ]
+      },
+      {
+         "name": "Listen for Xdebug (worker)",
+         "type": "php",
+         "request": "launch",
+         "port": 9004,
          "skipFiles": [
             "**/vendor/**/*.php"
          ]

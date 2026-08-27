@@ -1,0 +1,21 @@
+{
+   "name": "vwork/domain",
+   "description": "Modules and Infrastructure for Vehicle Workshop Management System",
+   "type": "library",
+   "require": {
+      "php": "^8.5"
+   },
+   "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Domain\\": "src/"
+      }
+   },
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev"
+}

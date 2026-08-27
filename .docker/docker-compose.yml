@@ -1,17 +1,17 @@
 name: VehicleWorkshop
 
-# Production stack: app + db + cache.
+# Production stack: web + db + cache.
 # `docker compose -f .docker/docker-compose.yml up`
 #
 # Networks:
-#   app_net  — app only. The one network with published ports (80/443).
-#   data_net — app, db, cache. Internal; app talks to db/cache here.
+#   web_net  — web only. The one network with published ports (80/443).
+#   data_net — web, db, cache. Internal; web talks to db/cache here.
 
 services:
-   app:
+   web:
       build:
          context: ..
-         dockerfile: ./.docker/Dockerfile
+         dockerfile: ./web/Dockerfile
          target: prod
       restart: unless-stopped
       ports:
@@ -34,13 +34,13 @@ services:
       healthcheck:
          # The base image's own healthcheck curls :2019 (FrankenPHP's admin
          # API), which the Caddyfile disables — always fails. Check the
-         # actual app port instead.
+         # actual web port instead.
          test: [ "CMD-SHELL", "curl -f http://localhost:80/ || exit 1" ]
          interval: 5s
          timeout: 5s
          retries: 5
       networks:
-         - app_net
+         - web_net
          - data_net
 
    db:
@@ -75,12 +75,35 @@ services:
       networks:
          - data_net
 
+   worker:
+      build:
+         context: ..
+         dockerfile: ./worker/Dockerfile
+         target: prod
+      restart: unless-stopped
+      environment:
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      depends_on:
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      networks:
+         - data_net
+
 volumes:
    db_data:
    cache_data:
 
 networks:
-   app_net:
+   web_net:
       driver: bridge
    data_net:
       driver: bridge

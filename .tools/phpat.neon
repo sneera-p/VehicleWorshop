@@ -5,6 +5,6 @@ parameters:
    level: 0
 
    paths:
-      - ../tests/architecture
+      - ../test/Architecture
 
-   tmpDir: ../var/cache/phpstan
+   tmpDir: ../.var/cache/phpstan

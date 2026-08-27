@@ -16,9 +16,8 @@
 // pointed at the parent directory explicitly to still scan the whole repo.
 $finder = (new PhpCsFixer\Finder())
    ->in(__DIR__ . '/..')
-   ->exclude(['vendor', 'var', 'node_modules'])
+   ->exclude(['vendor', '.var', 'node_modules', 'web/public/assets'])
    ->name('*.php')
-   ->notName('*.blade.php')
    ->ignoreDotFiles(true)
    ->ignoreVCS(true);
 
@@ -30,10 +29,5 @@ return (new PhpCsFixer\Config())
    ])
    ->setIndent('    ') // PSR-12: 4 spaces, hard requirement, not a preference
    ->setLineEnding("\n")
-   // Without this, PHP CS Fixer defaults to a stray .php-cs-fixer.cache at
-   // repo root — not gitignored, and inconsistent with PHPStan/PHPUnit,
-   // whose caches both already live under var/cache/. Matching that
-   // convention means this is covered by the existing /var/ gitignore
-   // rule for free, no separate ignore entry needed.
-   ->setCacheFile(__DIR__ . '/../var/cache/php-cs-fixer/.php-cs-fixer.cache')
+   ->setCacheFile(__DIR__ . '/../.var/cache/php-cs-fixer/.php-cs-fixer.cache')
    ->setFinder($finder);

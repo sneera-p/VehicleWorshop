@@ -1,0 +1,21 @@
+{
+   "name": "vwork/worker",
+   "description": "Notification Sending worker that takes events from a pubsub",
+   "type": "project",
+   "require": {
+      "php": "^8.5"
+   },
+   "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Worker\\": "src/"
+      }
+   },
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev"
+}
