@@ -15,7 +15,7 @@ node_modules/
 /tmp/
 *.cache
 *.log
-/public/assets/
+app/public/assets/
 
 # IDE & Editor
 *.swp

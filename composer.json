@@ -13,8 +13,7 @@
       }
    ],
    "require": {
-      "php": "^8.5",
-      "vwork/validator": "*"
+      "php": "^8.5"
    },
    "require-dev": {
       "deptrac/deptrac": "^4.7",
