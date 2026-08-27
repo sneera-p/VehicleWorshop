@@ -26,4 +26,3 @@ final class InternalNamespaceRule
             ->because('Internal/ is private to the module or infrastructure piece that owns it — Web/Worker/Console may only reach it through a facade or IInfrastructure implementation, never directly.');
     }
 }
-
