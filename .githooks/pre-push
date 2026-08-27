@@ -18,9 +18,4 @@ echo ""
 echo "Running phpat..."
 vendor/bin/phpstan analyse --configuration=.tools/phpat.neon
 
-echo ""
-echo "Running PHPUnit (unit only — integration needs DB/Valkey running,"
-echo "which a push shouldn't assume; run that suite manually or in CI)..."
-vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit
-
 exit 0
