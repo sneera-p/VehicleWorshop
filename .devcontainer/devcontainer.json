@@ -42,22 +42,26 @@
             // editor-tools
             "editorconfig.editorconfig",
             "ionutvmi.path-autocomplete",
-            // dev-tools
+            // markdown (.md)
+            "davidanson.vscode-markdownlint",
+            "shd101wyy.markdown-preview-enhanced",
+            // typscript (.ts)
+            "dbaeumer.vscode-eslint",
+            "ms-playwright.playwright",
+            // scss
+            "ecmel.vscode-html-css",
+            "mrmlnc.vscode-scss",
+            // php
             "junstyle.php-cs-fixer",
             "devsense.composer-php-vscode",
             "bmewburn.vscode-intelephense-client",
-            "ecmel.vscode-html-css",
-            "mrmlnc.vscode-scss",
-            // linters
-            "dbaeumer.vscode-eslint",
-            "ms-playwright.playwright",
-            "davidanson.vscode-markdownlint",
-            "foxundermoon.shell-format",
             "sanderronde.phpstan-vscode",
-            "mikestead.dotenv",
-            // debug
             "xdebug.php-debug",
-            "calebporzio.better-phpunit"
+            "calebporzio.better-phpunit",
+            // shell (.sh | .bash)
+            "foxundermoon.shell-format",
+            // ENV (.env)
+            "mikestead.dotenv"
          ],
 
          "settings": {
