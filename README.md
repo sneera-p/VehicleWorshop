@@ -12,7 +12,7 @@ Routing, DI, and the request pipeline are all hand-rolled, on purpose, so the te
 | --- | --- | --- |
 | **`shared/`** | Small, dependency-free utilities — a generic trie, the exception hierarchy, validators. Zero domain knowledge, zero HTTP knowledge. | nothing |
 | **`domain/`** | All business logic. Every module (Job, Billing, Staff, ...) and the infrastructure they run on (Postgres, Valkey, email/SMS). The heart of the app. | `shared/` |
-| **`app/`** | The WebApp — the only HTTP-facing process. Routing, controllers, middleware, views. | `domain/`, `shared/` |
+| **`web/`** | The WebApp — the only HTTP-facing process. Routing, controllers, middleware, views. | `domain/`, `shared/` |
 | **`worker/`** | The QueueWorker — a plain CLI process that listens on Valkey and does whatever shouldn't block an HTTP response: sending emails, texting customers, restocking inventory. | `domain/`, `shared/` |
 | **`console/`** | One-off CLI tooling — migrations, staff management, anything run by hand rather than by a request. | `domain/`, `shared/` |
 | **`tests/`** (root) | Only what no single deliverable can honestly claim alone — load, architecture, and security tests. | everything |
@@ -41,7 +41,7 @@ docker compose exec worker php console/main.php migrate
 To keep components decoupled, dependencies flow strictly in **one direction**:
 
 ```bash
-[ WebApp (app) ]      [ QueueWorker (worker) ]      [ Admin CLI (console) ]
+[ WebApp (web) ]      [ QueueWorker (worker) ]      [ Admin CLI (console) ]
        \                         |                         /
         +------------------------+------------------------+
                                  |
@@ -55,15 +55,15 @@ To keep components decoupled, dependencies flow strictly in **one direction**:
 
 * **`shared/`**: Base foundation (validators, exceptions, serializers).
 * **`domain/`**: Core business logic (infrastructure, modules).
-* **`app/`**, **`worker/`**, **`console/`**: Delivery mechanisms. They depend on `domain/`, but **never on each other**.
+* **`web/`**, **`worker/`**, **`console/`**: Delivery mechanisms. They depend on `domain/`, but **never on each other**.
 
 ---
 
 ### Event-Driven Communication
 
-Because `app/` and `worker/` do not import or talk to each other directly:
+Because `web/` and `worker/` do not import or talk to each other directly:
 
-1. **`app/`** publishes an event payload to **Event Broker (Valkey)**.
+1. **`web/`** publishes an event payload to **Event Broker (Valkey)**.
 2. **`worker/`** listens to Event Broker and processes the event.
 
 Neither process knows the other exists. This strict separation is automatically enforced at build time by **Deptrac** and Composer package rules.
@@ -82,11 +82,11 @@ Borrowing the core concept from microservice **service registries**, `IDomainReg
 
 With `domain/` complete, three distinct delivery fronts were built around it, all accessing business logic through the exact same facades:
 
-* **`app/` (WebApp):** Runs on FrankenPHP’s worker mode. It bootstraps the application once via `AppBuilder` and remains warm in memory. Incoming raw superglobals are converted into an immutable `Request` object, passed through a Trie-based `Router`, and sent through a nested middleware pipeline (`AuthMiddleware`, `RbacMiddleware`) to a Controller. The Controller delegates to a domain facade and returns a `Response`.
+* **`web/` (WebApp):** Runs on FrankenPHP’s worker mode. It bootstraps the application once via `AppBuilder` and remains warm in memory. Incoming raw superglobals are converted into an immutable `Request` object, passed through a Trie-based `Router`, and sent through a nested middleware pipeline (`AuthMiddleware`, `RbacMiddleware`) to a Controller. The Controller delegates to a domain facade and returns a `Response`.
 * **`worker/` (QueueWorker):** Handles asynchronous side effects like sending emails or processing payroll. Instead of making HTTP callers wait, domain facades publish small event payloads to Valkey. `QueueWorker` listens continuously to these channels and dispatches events to dedicated `EventHandler` classes.
 * **`console/` (Console):** Serves manual operations like database migrations or admin tasks. It bypasses HTTP pipelines and event loops entirely, executing commands directly against domain facades or `IDatabase`.
 
-### The HTTP Pipeline (`app/`)
+### The HTTP Pipeline (`web/`)
 
 A request hits the socket, FrankenPHP parses the raw bytes into PHP superglobals (`$_SERVER`, `$_GET`, `$_POST`), and the application immediately wraps them into a clean, immutable `Request` object. From that moment on, superglobals are dead to the codebase.
 
@@ -175,7 +175,7 @@ To maintain stability across all three fronts, a few core principles govern the 
 
 ## `shared/` — generic, dependency-free utilities
 
-The one test every file here has to pass: it carries **no** domain knowledge and **no** transport knowledge, regardless of how many packages use it. `IStaticTrie` is a good example, it backs `app/`'s router today, but it doesn't know what a route is; it could back a permission tree tomorrow without changing a line.
+The one test every file here has to pass: it carries **no** domain knowledge and **no** transport knowledge, regardless of how many packages use it. `IStaticTrie` is a good example, it backs `web/`'s router today, but it doesn't know what a route is; it could back a permission tree tomorrow without changing a line.
 
 ```text
 shared/
@@ -197,7 +197,7 @@ shared/
 
 ## `domain/` — the business logic
 
-Everything a real request cares about lives here: the modules (Job, Billing, Staff, ...) and the infrastructure they run on. Every module exposes exactly one public thing, a **facade** — nothing outside a module ever reaches into its internals, not another module, not `app/`, not `worker/`. Entities never leave a module either; a facade returns a real `Job` object, but nothing outside the module ever constructs one.
+Everything a real request cares about lives here: the modules (Job, Billing, Staff, ...) and the infrastructure they run on. Every module exposes exactly one public thing, a **facade** — nothing outside a module ever reaches into its internals, not another module, not `web/`, not `worker/`. Entities never leave a module either; a facade returns a real `Job` object, but nothing outside the module ever constructs one.
 
 Every consumer of `domain/` reaches it through exactly one interface, `IDomainRegistry` — "give me this facade" or "give me this piece of infrastructure." Nothing more is exposed, and `domain/` never depends outward on anything except `shared/`.
 
@@ -207,7 +207,6 @@ Every consumer of `domain/` reaches it through exactly one interface, `IDomainRe
 domain/
 ├── src/
 │   ├── IDomainRegistry.php               # the one door in
-│   ├── IFacade.php                       # empty marker — every module's public contract
 │   ├── Infrastructure/
 │   │   ├── IInfrastructure.php           # connect() / reconnect()
 │   │   ├── Database/
@@ -227,6 +226,7 @@ domain/
 │   │       ├── EmailNotifier.php
 │   │       └── SmsNotifier.php           # notify.lk
 │   └── Modules/
+│       ├── IFacade.php                   # empty marker — every module's public contract
 │       ├── SystemConfig/
 │       ├── Staff/
 │       ├── CustomerVehicle/
@@ -261,15 +261,18 @@ The dependency table above (`Identity` needs `SystemConfig`, `Appointment` needs
 
 A test proving "a module's facade actually works against real Postgres and real Valkey" is inherently testing the seam between `Infrastructure/` and `Modules/`, which is exactly what `domain/tests/` holds — real infrastructure, both halves exercised together, nothing faked. Anything faked (a module's facade against a fake `IDatabase`, `Database`'s reconnect logic against a fake `\PDO`) is a **Unit** test and lives right alongside the class it's testing, inside `domain/tests/` too, just never touching real Postgres or Valkey.
 
-## `app/` — the WebApp
+## `web/` — the WebApp
 
 The only process that speaks HTTP. Everything here exists to turn a `Request` into a `Response`: match a route, run it through middleware, call a facade, shape the result.
 
 ```text
-app/
+web/
 ├── src/
-│   ├── IApp.php / IAppBuilder.php / WebApp.php / AppBuilder.php
-│   ├── IHttpRegistry.php             # getController() / getMiddleware()
+│   ├── IApp.php
+│   ├── IAppBuilder.php
+│   ├── WebApp.php
+│   ├── AppBuilder.php
+│   ├── IHttpRegistry.php              # getController() / getMiddleware()
 │   ├── IServiceRegistry.php           # extends IDomainRegistry + IHttpRegistry
 │   ├── AppServiceRegistry.php
 │   ├── Http/                          # Request, Response, HttpMethods/Headers/Cookies
@@ -278,27 +281,31 @@ app/
 │   ├── Router/                        # IRouter, Router, RouteMatch, RouteContext
 │   ├── Pipeline/                      # IPipelineHandler/Factory, ControllerHandler, MiddlewareHandler
 │   └── Utils/
-│       └── View.php
-├── resources/                        # not PHP source — sibling to src/, not inside it
-│   ├── views/  ├── scss/  └── ts/
+│       ├── View.php
+│       └── Csrf.php
+├── resources/                         # not PHP source — sibling to src/, not inside it
+│   ├── views/
+│   ├── scss/
+│   └── ts/
 ├── config/
-│   ├── Caddyfile / Caddyfile.prod
+│   ├── Caddyfile.dev
+│   ├── Caddyfile.prod
 │   ├── routes/                        # staff.php, customer.php
-│   └── services/                       # infrastructure, facades, controllers, middleware
+│   └── services/                      # infrastructure, facades, controllers, middleware
 ├── public/                            # web-server document root
-│   ├── index.php                       # worker-mode entrypoint
-│   └── index.dev.php                    # classic, single-call entrypoint
+│   ├── index.php                      # worker-mode entrypoint
+│   └── index.dev.php                  # classic, single-call entrypoint
 ├── tests/
-│   ├── Unit/          # Router, Pipeline, AppServiceRegistry — everything faked
-│   ├── Integration/    # real Postgres/Valkey, a raw HTTP client — no browser involved
-│   └── e2e/              # real Postgres/Valkey, a real browser (Playwright) — the full depth
-│                          # of App alone, click to database. Not the same "e2e" as root tests/e2e —
-│                          # this one never involves worker/, it's App's own end-to-end
-├── package.json                        # Bun — TS/SCSS build only
+│   ├── Unit/                          # Router, Pipeline, AppServiceRegistry — everything faked
+│   ├── Integration/                   # real Postgres/Valkey, a raw HTTP client — no browser involved
+│   └── e2e/                           # real Postgres/Valkey, a real browser (Playwright) — the full depth
+│                                      # of App alone, click to database. Not the same "e2e" as root tests/e2e —
+│                                      # this one never involves worker/, it's web's own end-to-end
+├── package.json                       # Bun — TS/SCSS build only
 └── Dockerfile
 ```
 
-Playwright's own dependencies live in `app/tests/e2e/package.json`, kept separate from the frontend build's `package.json` — one is a build-time dependency shipping to `public/assets/`, the other is test-only and never ships anywhere.
+Playwright's own dependencies live in `web/tests/e2e/package.json`, kept separate from the frontend build's `package.json` — one is a build-time dependency shipping to `public/assets/`, the other is test-only and never ships anywhere.
 
 A controller's job is small and specific: read the request, call a facade with named arguments, hand the result to `view()`, `payload()`, or `sseEvent()`. It never touches Postgres, never touches Valkey directly.
 
@@ -309,7 +316,7 @@ No HTTP anywhere in this process. It boots, subscribes to every topic it has a h
 ```text
 worker/
 ├── src/
-│   ├── IWorkerServiceRegistry.php    # extends IDomainRegistry, + getEventHandler()
+│   ├── IWorkerServiceRegistry.php     # extends IDomainRegistry, + getEventHandler()
 │   ├── WorkerServiceRegistry.php
 │   ├── QueueWorker.php
 │   └── EventHandlers/
@@ -318,14 +325,15 @@ worker/
 │       └── InventoryLowStockNotificationHandler.php
 ├── config/
 │   └── services/
-│       ├── infrastructure.php         # the full set — this is what actually delivers notifications
-│       ├── facades.php
-│       └── eventHandlers.php           # keyed by PubSubTopics
+│   │   ├── infrastructure.php         # the full set — this is what actually delivers notifications
+│   │   ├── facades.php
+│   │   └── eventHandlers.php          # keyed by PubSubTopics
+│   └── php-cli.ini                       # opache config
 ├── tests/
 │   ├── Unit/
-│   └── Integration/                    # real Valkey — does QueueWorker actually react
-├── Dockerfile                          # console/ shares this image
-└── queue-worker                        # `php worker/queue-worker`
+│   └── Integration/                   # real Valkey — does QueueWorker actually react
+├── Dockerfile                         # console/ shares this image
+└── queue-worker                       # `php worker/queue-worker`
 ```
 
 No third tier here — there's no browser, no rendered UI, nothing an `e2e/` folder would test that `Integration/` doesn't already cover as the deepest possible check on `Worker` alone.
@@ -338,31 +346,32 @@ Migrations, creating a staff account by hand, sending a one-off reminder — any
 console/
 ├── src/
 │   └── Commands/
-│       ├── MigrateCommand.php           # talks to IDatabase directly — no facade, no schema yet
+│       ├── MigrateCommand.php            # talks to IDatabase directly — no facade, no schema yet
 │       ├── StaffCreateCommand.php
 │       └── NotifySendReminderCommand.php # calls the facade SYNCHRONOUSLY — nobody's waiting on a CLI command
 ├── config/
-│   └── services/
-│       ├── infrastructure.php
-│       └── facades.php
+│   ├── services/
+│   │   ├── infrastructure.php
+│   │   └── facades.php
+│   └── php-cli.ini                       # opache config
 ├── tests/
 │   ├── Unit/
-│   └── Integration/                     # real Postgres — does MigrateCommand produce the right schema
-└── console                              # `php console/console migrate`
+│   └── Integration/                      # real Postgres — does MigrateCommand produce the right schema
+└── console                               # `php console/console migrate`
 ```
 
 It has no `Dockerfile` of its own — it's built into `worker/`'s image and run with `docker compose exec worker php console/console <command>`.
 
 ## `tests/` (root) and `migrations/` — the things nobody owns
 
-Everything in this folder passes one test: no single deliverable — not `domain/`, not `app/`, not `worker/`, not `console/` — could honestly claim it on its own.
+Everything in this folder passes one test: no single deliverable — not `domain/`, not `web/`, not `worker/`, not `console/` — could honestly claim it on its own.
 
 ```text
 tests/
 ├── Load/            # k6 / Gatling — whole-stack performance under realistic concurrent traffic
 ├── Architecture/    # phpat / Deptrac — structural rules, checked across every package at once
 └── Security/        # composer audit, secret scanning, dependency CVEs — whole-repo tooling,
-                     # not "does AuthMiddleware work" (that's app/tests/Integration/'s job)
+                     # not "does AuthMiddleware work" (that's web/tests/Integration/'s job)
 
 migrations/  # Ordered SQL. No single module owns the whole schema, so this can't live inside domain/.
 ```
@@ -372,7 +381,7 @@ migrations/  # Ordered SQL. No single module owns the whole schema, so this can'
 ```bash
 git clone <repo-url> vwork && cd vwork
 composer install
-docker compose up -d                 # Postgres, Valkey, app, worker
+docker compose up -d                 # Postgres, Valkey, web, worker
 docker compose exec worker php console/main.php migrate
 ```
 
@@ -387,8 +396,8 @@ Admin isn't a separate app — it's a role, same as Technician or Supervisor, ga
 
 ```bash
 vendor/bin/phpunit --testsuite=unit           # every package's own Unit/
-vendor/bin/phpunit --testsuite=integration     # domain/, app/, worker/, console/'s own Integration/
-vendor/bin/phpunit --testsuite=e2e-app         # app/tests/e2e — Playwright, click to database, App alone
+vendor/bin/phpunit --testsuite=integration     # domain/, web/, worker/, console/'s own Integration/
+vendor/bin/phpunit --testsuite=e2e-app         # web/tests/e2e — Playwright, click to database, App alone
 vendor/bin/phpat analyse                       # root tests/architecture — structural rules
 composer audit                                  # root tests/security — dependency CVEs
 vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
@@ -397,23 +406,23 @@ vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 
 ## Adding a new endpoint
 
-1. Add the route in `app/config/routes/`.
+1. Add the route in `web/config/routes/`.
 2. Add the method to the module's facade interface, implement it, write a unit + integration test.
 3. Add a controller action that calls the facade with named arguments.
 4. Run Deptrac and PHPStan before you open a PR.
 
-Routes live in `app/config/routes/*.php`, one file per surface (`staff.php`, `customer.php`), each returning a plain array — method, path, the controller action to call, the middleware chain, and which roles are allowed through:
+Routes live in `web/config/routes/*.php`, one file per surface (`staff.php`, `customer.php`), each returning a plain array — method, path, the controller action to call, the middleware chain, and which roles are allowed through:
 
 ```php
 <?php
  
 declare(strict_types=1);
  
-use Vwork\Shared\Enums\HttpMethods;
+use Vwork\Shared\Http\HttpMethods;
 use Vwork\Domain\Modules\Identity\UserRoles;
-use Vwork\App\Controllers\JobController;
-use Vwork\App\Middleware\AuthMiddleware;
-use Vwork\App\Middleware\RbacMiddleware;
+use Vwork\Web\Controllers\JobController;
+use Vwork\Web\Middleware\AuthMiddleware;
+use Vwork\Web\Middleware\RbacMiddleware;
  
 return [
     [
@@ -474,16 +483,16 @@ return [
 ];
 ```
 
-**Controller** (`app/`-only — needs `IHttpRegistry`'s facades wired up alongside `IDomainRegistry`'s):
+**Controller** (`web/`-only — needs `IHttpRegistry`'s facades wired up alongside `IDomainRegistry`'s):
 
 ```php
 <?php
  
 declare(strict_types=1);
  
-use Vwork\App\IServiceRegistry;
+use Vwork\Web\IServiceRegistry;
 use Vwork\Domain\Modules\Job\IJobFacade;
-use Vwork\App\Controllers\JobController;
+use Vwork\Web\Controllers\JobController;
  
 return [
     JobController::class => fn(IServiceRegistry $registry) => new JobController(
@@ -492,16 +501,16 @@ return [
 ];
 ```
 
-**Middleware** (`app/`-only):
+**Middleware** (`web/`-only):
 
 ```php
 <?php
  
 declare(strict_types=1);
  
-use Vwork\App\IServiceRegistry;
+use Vwork\Web\IServiceRegistry;
 use Vwork\Domain\Modules\Identity\IIdentityFacade;
-use Vwork\App\Middleware\AuthMiddleware;
+use Vwork\Web\Middleware\AuthMiddleware;
  
 return [
     AuthMiddleware::class => fn(IServiceRegistry $registry) => new AuthMiddleware(

@@ -133,15 +133,15 @@ return static function (DeptracConfig $config): void {
             // (for IDomainRegistry/IFacade) and shared/ — never on each
             // other directly, and never on web/, worker/, or console/.
             Ruleset::forLayer($infrastructure)->accesses($shared),
-            Ruleset::forLayer($modules)->accesses($shared, $infrastructure),
+            Ruleset::forLayer($modules)->accesses($infrastructure, $shared),
 
             // web/, worker/, console/ all depend on domain/'s root,
             // infrastructure/, and modules/ (reached only through
             // IDomainRegistry — see README's registry split), plus shared/.
             // None of them may depend on each other.
-            Ruleset::forLayer($web)->accesses($infrastructure, $modules, $shared),
-            Ruleset::forLayer($worker)->accesses($infrastructure, $modules, $shared),
-            Ruleset::forLayer($console)->accesses($infrastructure, $modules, $shared),
+            Ruleset::forLayer($web)->accesses($modules, $shared),
+            Ruleset::forLayer($worker)->accesses($modules, $shared),
+            Ruleset::forLayer($console)->accesses($modules, $shared),
 
             // Unit tests exercise whatever they sit next to — any production layer, never another test layer.
             Ruleset::forLayer($sharedUnit)->accesses($shared),
