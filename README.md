@@ -428,10 +428,15 @@ return [
     [
         'method' => HttpMethods::POST,
         'path' => '/staff/jobs/{id}/complete',
-        'controller' => JobController::class,
-        'action' => 'complete',
+        'controller' => [
+            'class' => JobController::class,
+            'method' => 'complete',
+        ]
         'middleware' => [AuthMiddleware::class, RbacMiddleware::class],
-        'roles' => [UserRoles::Technician, UserRoles::Supervisor],
+        'context' => [
+            'roles' => [UserRoles::Technician, UserRoles::Supervisor],
+            /* plus other route context information (cookie info, session info) */
+        ]
     ],
 ];
 ```
