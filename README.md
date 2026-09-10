@@ -183,11 +183,7 @@ shared/
 │   ├── Collections/
 │   │   ├── IStaticTrie.php
 │   │   └── TrieNode.php
-│   ├── Serializers/
-│   │   ├── IPayloadSerializer.php  # serialize(data): string / contentType(): string
-│   │   ├── JsonSerializer.php
-│   │   └── ProtobufSerializer.php
-│   ├── Exceptions/
+│   ├── Exception/
 │   │   ├── VwrkError.php           # the code is wrong — never caught, just fixed
 │   │   └── VwrkException.php       # the world didn't cooperate — caught and handled
 │   └── Validators/                 # VIN, email, NIC, a generic Rule interface
@@ -219,10 +215,16 @@ domain/
 │   │   ├── Cache/
 │   │   │   ├── ICache.php
 │   │   │   └── ValkeyCache.php           # its own Redis connection — never shared with PubSub
+|   │   ├── Logging/
+|   │   │   ├── ILogger.php
+|   │   │   ├── StreamLogger.php
+|   │   │   ├── DatabaseLogger.php
+|   │   │   └── NullLogger.php
+|   │   ├── Email/
+│   │   │   ├── IEmailServer.php          # the generic SMTP primitive (attachments, etc.)
+│   │   │   └── EmailServer.php           # wraps PHPMailer — the only class that imports it
 │   │   └── Notification/
 │   │       ├── INotificationSender.php   # send(to, title, message)
-│   │       ├── IEmailServer.php          # the generic SMTP primitive (attachments, etc.)
-│   │       ├── EmailServer.php           # wraps PHPMailer — the only class that imports it
 │   │       ├── EmailNotifier.php
 │   │       └── SmsNotifier.php           # notify.lk
 │   └── Modules/
