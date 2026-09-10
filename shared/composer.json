@@ -1,0 +1,21 @@
+{
+   "name": "vwork/shared",
+   "description": "shared resources for Vehicle Workshop Management System",
+   "type": "library",
+   "require": {
+      "php": "^8.5"
+   },
+   "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Shared\\": "src/"
+      }
+   },
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev"
+}

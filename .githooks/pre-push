@@ -1,0 +1,21 @@
+#!/bin/sh
+# .githooks/pre-push
+#
+# Heavier checks — full-project static analysis and the full test suite.
+# Runs once per push, not once per commit, so the extra time is acceptable
+# here in a way it wouldn't be in pre-commit.
+
+set -e
+
+echo "Running PHPStan..."
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
+
+echo ""
+echo "Running Deptrac..."
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
+
+echo ""
+echo "Running phpat..."
+vendor/bin/phpstan analyse --configuration=.tools/phpat.neon
+
+exit 0

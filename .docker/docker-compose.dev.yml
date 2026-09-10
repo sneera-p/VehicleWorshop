@@ -1,0 +1,31 @@
+name: VehicleWorkshop
+
+include:
+   - ./docker-compose.e2e.yml
+
+# Dev stack: prod stack (web + db + cache) plus playwright, dev build
+# target, and source bind-mounts. devcontainer.json points here.
+
+services:
+   web:
+      build:
+         target: dev
+      volumes:
+         - ..:/app
+         - /app/vendor
+         - /app/node_modules
+      restart: "no"
+
+   playwright:
+      volumes:
+         - ../test/e2e:/web/test/e2e
+         - ../.tools/:/web/.tools
+
+   worker:
+      build:
+         target: dev
+      volumes:
+         - ..:/app
+         - /app/vendor
+         - /app/node_modules
+      restart: "no"

@@ -1,0 +1,72 @@
+{
+   // .editorconfig is the cross-editor source of truth; these
+   // settings mirror it for VS Code specifically and add PSR-12
+   // formatter wiring that .editorconfig alone can't express.
+   "editor.insertSpaces": true,
+   "editor.tabSize": 3,
+   "editor.detectIndentation": false,
+   "editor.formatOnSave": true,
+   "editor.trimAutoWhitespace": true,
+   "files.trimTrailingWhitespace": true,
+   "files.insertFinalNewline": true,
+   "files.eol": "\n",
+   // PSR-12 requires 4-space indentation — this is a spec requirement, not
+   // a preference, so PHP gets an explicit override of the 3-space default.
+   "[php]": {
+      "editor.tabSize": 4,
+      "editor.defaultFormatter": "junstyle.php-cs-fixer"
+   },
+   // The Maintainance 5
+   "php-cs-fixer.executablePath": "/app/vendor/bin/php-cs-fixer",
+   "php-cs-fixer.config": "/app/.tools/.php-cs-fixer.dist.php",
+   "phpstan.binPath": "/app/vendor/bin/phpstan",
+   "phpstan.configFile": "/app/.tools/phpstan.neon",
+   // Version-appropriate diagnostics/suggestions from Intelephense, matching
+   // the "php": "^8.5" constraint in composer.json.
+   "intelephense.environment.phpVersion": "8.5.0",
+   // Markdown: preserve trailing whitespace (can encode intentional line
+   // breaks), matching the .editorconfig exception.
+   "[markdown]": {
+      "files.trimTrailingWhitespace": false
+   },
+   // Dockerfile, YAML, and JSON already match the project default (3), but
+   // stated explicitly here so a future global user-settings change can't
+   // silently override them per-language.
+   "[dockerfile]": {
+      "editor.tabSize": 3
+   },
+   "[yaml]": {
+      "editor.defaultFormatter": "ms-azuretools.vscode-containers",
+      "editor.tabSize": 3
+   },
+   "[json]": {
+      "editor.tabSize": 3
+   },
+   "[jsonc]": {
+      "editor.tabSize": 3
+   },
+   "[shellscript]": {
+      "editor.defaultFormatter": "foxundermoon.shell-format",
+      "editor.tabSize": 3
+   },
+   "eslint.validate": [
+      "typescript"
+   ],
+   "eslint.workingDirectories": [
+      {
+         "directory": "../web/resources/ts/",
+      },
+      {
+         "directory": "../web/test/e2e/",
+      }
+   ],
+   // extend file icons for docker-compose.[xxx].yml & Caddyfile.[xxx] etc.
+   "material-icon-theme.files.associations": {
+      "docker-compose.dev.yml": "docker",
+      "docker-compose.e2e.yml": "docker",
+      "Caddyfile.dev": "caddy",
+      "Caddyfile.prod": "caddy",
+      "phpat.neon": "phpstan"
+   },
+   "remote.autoForwardPortsFallback": 0
+}

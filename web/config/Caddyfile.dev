@@ -1,0 +1,21 @@
+{
+	frankenphp
+}
+
+:80 {
+	route {
+		@assets {
+			path /app/web/public/assets/*
+		}
+
+		file_server @assets {
+			root /app/web/public
+		}
+
+		rewrite index.php
+		php {
+			root /app/web/public
+			resolve_root_symlink false
+		}
+	}
+}

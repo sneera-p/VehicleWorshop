@@ -1,0 +1,67 @@
+{
+   "name": "vwork/vehicle-workshop",
+   "description": "Workshop management system for small-to-medium scale garages",
+   "type": "project",
+   "repositories": [
+      {
+         "type": "path",
+         "url": "shared"
+      },
+      {
+         "type": "path",
+         "url": "domain"
+      },
+      {
+         "type": "path",
+         "url": "web"
+      },
+      {
+         "type": "path",
+         "url": "worker"
+      },
+      {
+         "type": "path",
+         "url": "console"
+      }
+   ],
+   "require": {
+      "php": "^8.5",
+      "vwork/shared": "*",
+      "vwork/domain": "*",
+      "vwork/web": "*",
+      "vwork/worker": "*",
+      "vwork/console": "*"
+   },
+   "require-dev": {
+      "deptrac/deptrac": "^4.7",
+      "friendsofphp/php-cs-fixer": "^3.95",
+      "phpat/phpat": "^0.12.4",
+      "phpstan/phpstan": "^2.2",
+      "phpunit/phpunit": "^13.3"
+   },
+   "license": "proprietary",
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      },
+      {
+         "name": "Geeth",
+         "email": "example@email.com"
+      },
+      {
+         "name": "Yasindu",
+         "email": "yasiduweerakkody46@gmail.com"
+      },
+      {
+         "name": "Risinu",
+         "email": "risinu.kaveen22@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev",
+   "prefer-stable": true,
+   "config": {
+      "sort-packages": true,
+      "optimize-autoloader": true
+   }
+}

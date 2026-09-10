@@ -1,0 +1,83 @@
+{
+   "name": "Vehicle Workshop - dev",
+   "dockerComposeFile": [
+      "../.docker/docker-compose.dev.yml"
+   ],
+
+   "service": "web",
+   "shutdownAction": "stopCompose",
+   "overrideCommand": false,
+
+   "workspaceFolder": "/app",
+   "mounts": [
+      "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached",
+      // .gitconfig alone only carries name/email/aliases — it has nothing
+      // to do with authentication. Without this, `git push`/`pull` over SSH fails
+      "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
+   ],
+
+   "postCreateCommand": "git config core.hooksPath .githooks && chmod +x .githooks/*",
+
+   "forwardPorts": [9003],
+   "portsAttributes": {
+      "80": {
+         "label": "HTTP",
+         "onAutoForward": "openBrowserOnce"
+      },
+      "9003": {
+         "label": "PHP Xdebug",
+         "onAutoForward": "silent"
+      }
+   },
+
+   "customizations": {
+      "vscode": {
+         "extensions": [
+            // docker & docker-compose validation
+            "ms-azuretools.vscode-containers",
+            // database client
+            "cweijan.vscode-database-client2",
+            // git
+            "eamodio.gitlens",
+            // editor-tools
+            "editorconfig.editorconfig",
+            "ionutvmi.path-autocomplete",
+            // markdown (.md)
+            "davidanson.vscode-markdownlint",
+            "shd101wyy.markdown-preview-enhanced",
+            // typscript (.ts)
+            "dbaeumer.vscode-eslint",
+            "ms-playwright.playwright",
+            // scss
+            "ecmel.vscode-html-css",
+            "mrmlnc.vscode-scss",
+            // php
+            "junstyle.php-cs-fixer",
+            "devsense.composer-php-vscode",
+            "bmewburn.vscode-intelephense-client",
+            "sanderronde.phpstan-vscode",
+            "xdebug.php-debug",
+            "calebporzio.better-phpunit",
+            // shell (.sh | .bash)
+            "foxundermoon.shell-format",
+            // ENV (.env)
+            "mikestead.dotenv"
+         ],
+
+         "settings": {
+            "php.validate.executablePath": "/usr/local/bin/php"
+         }
+      }
+   },
+
+   "remoteUser": "root",
+   "features": {
+      "ghcr.io/devcontainers/features/common-utils:2": {
+         "installZsh": true,
+         "configureZshAsDefaultShell": true,
+         "username": "root",
+         "userUid": "automatic",
+         "userGid": "automatic"
+      }
+   }
+}

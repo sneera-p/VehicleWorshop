@@ -1,0 +1,21 @@
+{
+   "name": "vwork/web",
+   "description": "website off vehicle workshop management system",
+   "type": "project",
+   "require": {
+      "php": "^8.5"
+   },
+   "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Web\\": "src/"
+      }
+   },
+   "authors": [
+      {
+         "name": "senira",
+         "email": "senirahan@gmail.com"
+      }
+   ],
+   "minimum-stability": "dev"
+}

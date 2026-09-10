@@ -1,0 +1,17 @@
+{
+   "name": "vwork-web",
+   "type": "module",
+   "private": true,
+   "scripts": {
+      "build": "bun run ./resources/build.config.ts",
+      "dev": "bun run ./resources/build.config.ts --dev --watch",
+      "typecheck": "tsc --build --noEmit",
+      "test:e2e": "playwright test --config=./test/e2e/playwright.config.ts"
+   },
+   "devDependencies": {
+      "typescript": "^5.6.0",
+      "@types/bun": "^1.4.0",
+      "@playwright/test": "^1.62.1",
+      "sass": "^1.77.0"
+   }
+}

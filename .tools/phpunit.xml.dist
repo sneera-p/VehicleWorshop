@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:noNamespaceSchemaLocation="../vendor/phpunit/phpunit/phpunit.xsd"
+   bootstrap="../vendor/autoload.php"
+   colors="true"
+   cacheDirectory="../.var/cache/phpunit"
+>
+   <!--
+      Tests are discovered by directory, not by Composer autoload-dev
+      namespace — Composer only merges the ROOT project's autoload-dev,
+      never a path-repo dependency's. Pointing PHPUnit straight at each
+      package's test/ folder sidesteps that rather than duplicating every
+      namespace here too.
+   -->
+   <testsuites>
+      <testsuite name="unit">
+         <directory>../shared/*/test</directory>
+         <directory>../domain/infrastructure/test</directory>
+         <directory>../domain/modules/test</directory>
+         <directory>../web/test/Unit</directory>
+         <directory>../worker/test/Unit</directory>
+         <directory>../console/test/Unit</directory>
+      </testsuite>
+      <!--
+         Real Postgres + Valkey, infrastructure and modules exercised
+         together — lives at domain/'s own root since it's testing the
+         seam between infrastructure/ and modules/, not either alone.
+      -->
+      <testsuite name="integration">
+         <directory>../domain/test</directory>
+         <directory>../web/test/Integration</directory>
+         <directory>../worker/test/Integration</directory>
+         <directory>../console/test/Integration</directory>
+      </testsuite>
+      <!--
+         Root test/e2e only — the cross-process suite (web publishes,
+         worker reacts). web/test/e2e (Playwright) runs via its own
+         `bun run test:e2e`, not through PHPUnit.
+      -->
+      <testsuite name="e2e">
+         <directory>../test/e2e</directory>
+      </testsuite>
+   </testsuites>
+
+   <source>
+      <include>
+         <directory>../shared/src</directory>
+         <directory>../domain/src</directory>
+         <directory>../web/src</directory>
+         <directory>../worker/src</directory>
+         <directory>../console/src</directory>
+      </include>
+   </source>
+</phpunit>

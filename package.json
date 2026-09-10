@@ -1,0 +1,14 @@
+{
+   "name": "vwork",
+   "private": true,
+   "type": "module",
+   "workspaces": [
+      "web"
+   ],
+   "scripts": {
+      "build": "bun run --filter vwork-web build",
+      "dev": "bun run --filter vwork-web dev",
+      "typecheck": "bun run --filter vwork-web typecheck",
+      "test:e2e": "bun run --filter vwork-web test:e2e"
+   }
+}

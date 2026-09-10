@@ -1,0 +1,109 @@
+name: VehicleWorkshop
+
+# Production stack: web + db + cache.
+# `docker compose -f .docker/docker-compose.yml up`
+#
+# Networks:
+#   web_net  — web only. The one network with published ports (80/443).
+#   data_net — web, db, cache. Internal; web talks to db/cache here.
+
+services:
+   web:
+      build:
+         context: ..
+         dockerfile: ./web/Dockerfile
+         target: prod
+      restart: unless-stopped
+      ports:
+         - "80:80"
+         - "443:443"
+      environment:
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      depends_on:
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      healthcheck:
+         # The base image's own healthcheck curls :2019 (FrankenPHP's admin
+         # API), which the Caddyfile disables — always fails. Check the
+         # actual web port instead.
+         test: [ "CMD-SHELL", "curl -f http://localhost:80/ || exit 1" ]
+         interval: 5s
+         timeout: 5s
+         retries: 5
+      networks:
+         - web_net
+         - data_net
+
+   db:
+      image: postgres:16.14-alpine3.24@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+      restart: unless-stopped
+      environment:
+         POSTGRES_USER: ${DB_USER:?DB_USER not in .env}
+         POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         POSTGRES_DB: ${DB_NAME:?DB_NAME not in .env}
+      volumes:
+         - db_data:/var/lib/postgresql/data
+      healthcheck:
+         test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:?DB_USER not in .env} -d ${DB_NAME:?DB_NAME not in .env}" ]
+         interval: 5s
+         timeout: 5s
+         retries: 5
+      networks:
+         - data_net
+
+   cache:
+      image: valkey/valkey:9.1.1-alpine3.24@sha256:ee91f7a174ac4d6a6b0685b3a60e321f0a9dbbb691f9b0e285be2ba1d1be8328
+      restart: unless-stopped
+      environment:
+         VALKEY_EXTRA_FLAGS: --requirepass ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      volumes:
+         - cache_data:/data
+      healthcheck:
+         test: [ "CMD-SHELL", "valkey-cli -a ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env} ping | grep -q PONG" ]
+         interval: 5s
+         timeout: 5s
+         retries: 5
+      networks:
+         - data_net
+
+   worker:
+      build:
+         context: ..
+         dockerfile: ./worker/Dockerfile
+         target: prod
+      restart: unless-stopped
+      environment:
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      depends_on:
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      networks:
+         - data_net
+
+volumes:
+   db_data:
+   cache_data:
+
+networks:
+   web_net:
+      driver: bridge
+   data_net:
+      driver: bridge

@@ -1,27 +1,26 @@
 # Dependencies
-/vendor/
+vendor/
+node_modules/
 
 # Environment & Secrets
-config/.env
+**/.env
+**/.env.*
+!.docker/.env
 *.pem
 *.key
 *.crt
 
 # Runtime & Generated Files
-/var/
+/.var/
 /tmp/
 *.cache
 *.log
+web/public/assets/
 
 # IDE & Editor
-.idea/
-.vscode/
 *.swp
 *.swo
 *~
-.project
-.settings/
-.buildpath
 
 # OS Files
 .DS_Store

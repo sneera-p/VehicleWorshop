@@ -1,0 +1,26 @@
+parameters:
+   # No framework — see README's "no framework" section. No framework
+   # extension/stubs needed as a result.
+
+   # Fresh project, no legacy debt to fight — starting at the strictest
+   # level rather than working up to it.
+   level: max
+
+   paths:
+      - ../shared
+      - ../domain
+      - ../web
+      - ../worker
+      - ../console
+
+   # Points at each top-level folder, not each package's src/ individually
+   # — PHPStan's "paths" doesn't expand wildcards the way PHPUnit's
+   # <directory> elements do. Recursing from each top-level folder means
+   # new packages (a new domain/modules/*, say) get analyzed automatically
+   # with no config edit needed.
+
+   excludePaths:
+      - ../web/public/assets/*
+      - ../web/node_modules/*
+
+   tmpDir: ../.var/cache/phpstan
