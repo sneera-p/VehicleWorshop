@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Domain\Infrastructure\Database;
 
+use Closure;
 use Override;
 use PDO;
 use PDOException;
@@ -78,10 +79,10 @@ final class PostgressDb implements IDatabase
     }
 
     /**
-     * @param callable(IDatabase): void $transaction
+     * @param Closure(IDatabase): void $transaction
      */
     #[Override]
-    public function execute(callable $transaction): void
+    public function execute(Closure $transaction): void
     {
         try {
             $this->beginTransaction();

@@ -13,7 +13,7 @@ use Throwable;
  * rule that failed, a webhook signature that didn't match, a record that
  * doesn't exist. Correct code throws these regularly.
  */
-abstract class VworkException extends Exception
+class VworkException extends Exception
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {

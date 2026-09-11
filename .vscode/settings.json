@@ -21,6 +21,13 @@
    "php-cs-fixer.config": "/app/.tools/.php-cs-fixer.dist.php",
    "phpstan.binPath": "/app/vendor/bin/phpstan",
    "phpstan.configFile": "/app/.tools/phpstan.neon",
+   "phpunit.command": "${php} ${phpargs} ${phpunit} ${phpunitargs}",
+   "phpunit.args": [
+      "--configuration=.tools/phpunit.xml.dist"
+   ],
+   "phpunit.paths": {
+      "${workspaceFolder}": "/app"
+   },
    // Version-appropriate diagnostics/suggestions from Intelephense, matching
    // the "php": "^8.5" constraint in composer.json.
    "intelephense.environment.phpVersion": "8.5.0",

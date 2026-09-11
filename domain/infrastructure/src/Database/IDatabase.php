@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Domain\Infrastructure\Database;
 
+use Closure;
 use Vwork\Domain\Infrastructure\IInfrastructure;
 
 /**
@@ -13,9 +14,9 @@ use Vwork\Domain\Infrastructure\IInfrastructure;
 interface IDatabase extends IInfrastructure
 {
     /**
-     * @param callable(IDatabase): void $transaction
+     * @param Closure(IDatabase): void $transaction
      */
-    public function execute(callable $transaction): void;
+    public function execute(Closure $transaction): void;
 
     /**
      * @param array<string, mixed> $params

@@ -175,19 +175,19 @@ To maintain stability across all three fronts, a few core principles govern the 
 
 ## `shared/` — generic, dependency-free utilities
 
-The one test every file here has to pass: it carries **no** domain knowledge and **no** transport knowledge, regardless of how many packages use it. `IStaticTrie` is a good example, it backs `web/`'s router today, but it doesn't know what a route is; it could back a permission tree tomorrow without changing a line.
+The one test every file here has to pass: it carries **no** domain knowledge and **no** transport knowledge, regardless of how many packages use it. `StaticTrie` is a good example, it backs `web/`'s router today, but it doesn't know what a route is; it could back a permission tree tomorrow without changing a line.
 
 ```text
 shared/
 ├── src/                             # Vwork\Shared\
 │   ├── Collections/
-│   │   ├── IStaticTrie.php
-│   │   └── TrieNode.php
+│   │   ├── StaticTrie.php
+│   │   └── Registry.php
 │   ├── Exception/
 │   │   ├── VwrkError.php           # the code is wrong — never caught, just fixed
 │   │   └── VwrkException.php       # the world didn't cooperate — caught and handled
 │   └── Validators/                 # VIN, email, NIC, a generic Rule interface
-└── test/                            # Vwork\Shared\Test\ (autoload-dev only)
+└── test/                           # Vwork\Shared\Test\ (autoload-dev only)
 ```
 
 ## `domain/` — the business logic
@@ -416,11 +416,11 @@ Admin isn't a separate app — it's a role, same as Technician or Supervisor, ga
 ## Checking your work
 
 ```bash
-vendor/bin/phpunit --testsuite=unit           # every folder's own Unit/
-vendor/bin/phpunit --testsuite=integration     # domain/, web/, worker/, console/'s own Integration/
-vendor/bin/phpunit --testsuite=e2e-app         # web/e2e — Playwright, click to database, App alone
-vendor/bin/phpat analyse                       # root tests/Architecture — structural rules
-composer audit                                  # root tests/Security — dependency CVEs
+vendor/bin/phpunit --testsuite=unit          # every folder's own Unit/
+vendor/bin/phpunit --testsuite=integration   # domain/, web/, worker/, console/'s own Integration/
+bun test:e2e                                 # web/e2e — Playwright, click to database, App alone
+vendor/bin/phpat analyse                     # root tests/Architecture — structural rules
+composer audit                               # root tests/Security — dependency CVEs
 vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
 vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 ```

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Domain\Infrastructure\PubSub;
 
+use Closure;
 use Vwork\Domain\Infrastructure\IInfrastructure;
 use Vwork\Domain\Infrastructure\PubSub\PubSubTopics;
 
@@ -17,7 +18,7 @@ interface IPubSub extends IInfrastructure
 
     /**
      * @param list<PubSubTopics> $topics
-     * @param callable(PubSubTopics $topic, string $message): void $callback
+     * @param Closure(PubSubTopics $topic, string $message): void $callback
      */
-    public function subscribe(array $topics, callable $callback): void;
+    public function subscribe(array $topics, Closure $callback): void;
 }

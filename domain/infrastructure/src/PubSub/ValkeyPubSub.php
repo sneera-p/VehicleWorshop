@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Domain\Infrastructure\PubSub;
 
+use Closure;
 use Override;
 use Redis;
 use RedisException;
@@ -39,12 +40,12 @@ final class ValkeyPubSub extends Valkey implements IPubSub
 
     /**
      * @param list<PubSubTopics> $topics
-     * @param callable(PubSubTopics $topic, string $message): void $callback
+     * @param Closure(PubSubTopics $topic, string $message): void $callback
      *
      * BLOCKS the calling process indefinitely until unsubscribed.
      */
     #[Override]
-    public function subscribe(array $topics, callable $callback): void
+    public function subscribe(array $topics, Closure $callback): void
     {
         $channels = array_map(fn (PubSubTopics $item) => $item->value, $topics);
         try {

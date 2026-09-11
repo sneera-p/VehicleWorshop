@@ -58,7 +58,7 @@
             "bmewburn.vscode-intelephense-client",
             "sanderronde.phpstan-vscode",
             "xdebug.php-debug",
-            "calebporzio.better-phpunit",
+            "recca0120.vscode-phpunit",
             // shell (.sh | .bash)
             "foxundermoon.shell-format",
             // ENV (.env)
