@@ -31,6 +31,8 @@ use PHPat\Test\PHPat;
  *
  *     Utils/ and Http/ are both leaves and mutually exclusive — neither
  *     may touch the other.
+ *
+ * @author Senira <senirahan@gmail.com>
  */
 final class WebRules
 {
