@@ -138,52 +138,6 @@
          }
       },
       // ##########################################
-      // ──────────────── Composer ────────────────
-      // ##########################################
-      {
-         // Root-level install — resolves shared/, domain/, web/, worker/, console/ together into ONE vendor/.
-         // Individual packages' own composer.json files are declarative only;
-         // their own`composer install` is never run directly in normal workflows.
-         "label": "Composer: install",
-         "type": "shell",
-         "command": "composer install",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         "label": "Composer: validate",
-         "type": "shell",
-         "command": "composer validate --strict",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         "label": "Composer: update",
-         "type": "shell",
-         "command": "composer update --with-all-dependencies",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         "label": "Composer: audit",
-         "type": "shell",
-         "command": "composer audit",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      // ##########################################
       // ───────────────── Docker ─────────────────
       // ##########################################
       // Host-only: run from a terminal not attached to the devcontainer
@@ -291,51 +245,6 @@
          "label": "Assets: install",
          "type": "shell",
          "command": "bun install",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      // #########################################
-      // ────────────────── Git ──────────────────
-      // #########################################
-      {
-         "label": "Git: add all",
-         "type": "shell",
-         "command": "git add --all",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         // Runs in the integrated terminal so `git commit` can open
-         // $EDITOR (or git's built-in default) interactively.
-         "label": "Git: commit",
-         "type": "shell",
-         "command": "git commit",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         "label": "Git: push",
-         "type": "shell",
-         "command": "git push",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
-      {
-         "label": "Git: switch",
-         "type": "shell",
-         "command": "git switch ${input:gitSwitchBranch}",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
