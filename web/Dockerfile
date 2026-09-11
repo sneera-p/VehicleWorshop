@@ -29,12 +29,12 @@ FROM ${FRANKENPHP_IMAGE} AS base
 # opcache      → Production performance
 # iconv        → required by symfony/polyfill-mbstring (php-cs-fixer dep)
 RUN install-php-extensions \
-   pdo_pgsql \
-   redis \
-   gd \
    opcache \
+   gd \
    iconv \
-   @composer
+   pdo_pgsql \
+   redis-6.3.0 \
+   @composer-2.10.3
 
 WORKDIR /app
 

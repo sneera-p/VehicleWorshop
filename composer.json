@@ -2,35 +2,8 @@
    "name": "vwork/vehicle-workshop",
    "description": "Workshop management system for small-to-medium scale garages",
    "type": "project",
-   "repositories": [
-      {
-         "type": "path",
-         "url": "shared"
-      },
-      {
-         "type": "path",
-         "url": "domain"
-      },
-      {
-         "type": "path",
-         "url": "web"
-      },
-      {
-         "type": "path",
-         "url": "worker"
-      },
-      {
-         "type": "path",
-         "url": "console"
-      }
-   ],
    "require": {
-      "php": "^8.5",
-      "vwork/shared": "*",
-      "vwork/domain": "*",
-      "vwork/web": "*",
-      "vwork/worker": "*",
-      "vwork/console": "*"
+      "php": "^8.5"
    },
    "require-dev": {
       "deptrac/deptrac": "^4.7",
@@ -40,6 +13,28 @@
       "phpunit/phpunit": "^13.3"
    },
    "license": "proprietary",
+   "autoload": {
+      "psr-4": {
+         "Vwork\\Shared\\": "shared/src/",
+         "Vwork\\Domain\\": "domain/src/",
+         "Vwork\\Domain\\Infrastructure\\": "domain/infrastructure/src/",
+         "Vwork\\Domain\\Modules\\": "domain/modules/src/",
+         "Vwork\\Web\\": "web/src/",
+         "Vwork\\Worker\\": "worker/src/",
+         "Vwork\\Console\\": "console/src/"
+      }
+   },
+   "autoload-dev": {
+      "psr-4": {
+         "Vwork\\Shared\\Test\\": "shared/test/",
+         "Vwork\\Domain\\Test\\": "domain/test/",
+         "Vwork\\Domain\\Infrastructure\\Test\\": "domain/infrastructure/test/",
+         "Vwork\\Domain\\Modules\\Test\\": "domain/modules/test/",
+         "Vwork\\Web\\Test\\": "web/test/",
+         "Vwork\\Worker\\Test\\": "worker/test/",
+         "Vwork\\Console\\Test\\": "console/test/"
+      }
+   },
    "authors": [
       {
          "name": "senira",

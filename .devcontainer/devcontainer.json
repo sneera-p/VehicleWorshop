@@ -46,6 +46,7 @@
             "davidanson.vscode-markdownlint",
             "shd101wyy.markdown-preview-enhanced",
             // typscript (.ts)
+            "oven.bun-vscode",
             "dbaeumer.vscode-eslint",
             "ms-playwright.playwright",
             // scss

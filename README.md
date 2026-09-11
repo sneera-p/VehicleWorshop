@@ -6,16 +6,16 @@ Routing, DI, and the request pipeline are all hand-rolled, on purpose, so the te
 
 ## The shape of the system
 
-`vwork` consists of **five Composer packages**, each with its own `composer.json`, `src/`, and `tests/`.
+`vwork` is **one Composer package**, with a PSR-4 namespace root mapped to each top-level folder's `src/` (and a matching `autoload-dev` root for each folder's `test/`). Deptrac and PHPat enforce package boundaries.
 
 | Folder | What it is | Depends on |
 | --- | --- | --- |
-| **`shared/`** | Small, dependency-free utilities — a generic trie, the exception hierarchy, validators. Zero domain knowledge, zero HTTP knowledge. | nothing |
+| **`shared/`** | Small, dependency-free utilities such as a generic trie, the exception hierarchy, validators. Zero domain knowledge, zero HTTP knowledge. | nothing |
 | **`domain/`** | All business logic. Every module (Job, Billing, Staff, ...) and the infrastructure they run on (Postgres, Valkey, email/SMS). The heart of the app. | `shared/` |
-| **`web/`** | The WebApp — the only HTTP-facing process. Routing, controllers, middleware, views. | `domain/`, `shared/` |
-| **`worker/`** | The QueueWorker — a plain CLI process that listens on Valkey and does whatever shouldn't block an HTTP response: sending emails, texting customers, restocking inventory. | `domain/`, `shared/` |
-| **`console/`** | One-off CLI tooling — migrations, staff management, anything run by hand rather than by a request. | `domain/`, `shared/` |
-| **`tests/`** (root) | Only what no single deliverable can honestly claim alone — load, architecture, and security tests. | everything |
+| **`web/`** | The HTTP-facing process. Routing, controllers, middleware, views. | `domain/`, `shared/` |
+| **`worker/`** | A plain CLI process that listens on Valkey and does whatever shouldn't block an HTTP response: sending emails, texting customers, restocking inventory. | `domain/`, `shared/` |
+| **`console/`** | CLI tooling for migrations, staff management, anything run by hand rather than by a request. | `domain/`, `shared/` |
+| **`tests/`** (root) | Tests that no single deliverable can honestly claim alone: load, architecture, and security tests. | everything |
 
 ### Running the System (4 Containers)
 
@@ -66,7 +66,7 @@ Because `web/` and `worker/` do not import or talk to each other directly:
 1. **`web/`** publishes an event payload to **Event Broker (Valkey)**.
 2. **`worker/`** listens to Event Broker and processes the event.
 
-Neither process knows the other exists. This strict separation is automatically enforced at build time by **Deptrac** and Composer package rules.
+Neither process knows the other exists. This strict separation is automatically enforced at build time by **Deptrac** and **PHPat** module rules — there's no Composer package boundary to lean on anymore, so these are the only things stopping `web/` from importing `worker/` directly.
 
 ## The story of the architecture
 
@@ -179,7 +179,7 @@ The one test every file here has to pass: it carries **no** domain knowledge and
 
 ```text
 shared/
-├── src/
+├── src/                             # Vwork\Shared\
 │   ├── Collections/
 │   │   ├── IStaticTrie.php
 │   │   └── TrieNode.php
@@ -187,8 +187,7 @@ shared/
 │   │   ├── VwrkError.php           # the code is wrong — never caught, just fixed
 │   │   └── VwrkException.php       # the world didn't cooperate — caught and handled
 │   └── Validators/                 # VIN, email, NIC, a generic Rule interface
-├── composer.json                   # vwork/shared
-└── tests/
+└── test/                            # Vwork\Shared\Test\ (autoload-dev only)
 ```
 
 ## `domain/` — the business logic
@@ -197,13 +196,19 @@ Everything a real request cares about lives here: the modules (Job, Billing, Sta
 
 Every consumer of `domain/` reaches it through exactly one interface, `IDomainRegistry` — "give me this facade" or "give me this piece of infrastructure." Nothing more is exposed, and `domain/` never depends outward on anything except `shared/`.
 
-`domain/` is one Composer package. `Infrastructure/` and `Modules/` are organizational folders inside it, not separate packages:
+`Infrastructure/` and `Modules/` are now two independent PSR-4 namespace roots (`Vwork\Domain\Infrastructure\`, `Vwork\Domain\Modules\`) rather than folders nested under one, giving Deptrac/PHPat a namespace boundary to check directly instead of a folder convention. `IDomainRegistry.php` itself sits under a small third root, `Vwork\Domain\` at `domain/src/` — it's the seam interface both other roots depend on and doesn't belong to either.
+
+> **Open question, not yet decided:** with `Infrastructure/` and `Modules/` split into separate `test/` roots, where do integration tests that exercise the seam between them (a facade against a real Postgres/Valkey `Infrastructure/`) live? Proposed default below is a root-level `domain/test/` (`Vwork\Domain\Test\`) alongside `domain/src/`, but this needs confirming before it's real.
 
 ```text
 domain/
-├── src/
-│   ├── IDomainRegistry.php               # the one door in
-│   ├── Infrastructure/
+├── src/                                  # Vwork\Domain\ — just the seam contract, nothing else
+│   └── IDomainRegistry.php               # the one door in
+├── test/                                 # Vwork\Domain\Test\ (proposed — see open question above)
+│                                         # Integration only — real Postgres + Valkey,
+│                                         # infrastructure and modules exercised together
+├── infrastructure/
+│   ├── src/                              # Vwork\Domain\Infrastructure\
 │   │   ├── IInfrastructure.php           # connect() / reconnect()
 │   │   ├── Database/
 │   │   │   ├── IDatabase.php             # runTransaction(), query() — no entity knowledge at all
@@ -215,39 +220,39 @@ domain/
 │   │   ├── Cache/
 │   │   │   ├── ICache.php
 │   │   │   └── ValkeyCache.php           # its own Redis connection — never shared with PubSub
-|   │   ├── Logging/
-|   │   │   ├── ILogger.php
-|   │   │   ├── StreamLogger.php
-|   │   │   ├── DatabaseLogger.php
-|   │   │   └── NullLogger.php
-|   │   ├── Email/
+│   │   ├── Logging/
+│   │   │   ├── ILogger.php
+│   │   │   ├── StreamLogger.php
+│   │   │   ├── DatabaseLogger.php
+│   │   │   └── NullLogger.php
+│   │   ├── Email/
 │   │   │   ├── IEmailServer.php          # the generic SMTP primitive (attachments, etc.)
 │   │   │   └── EmailServer.php           # wraps PHPMailer — the only class that imports it
 │   │   └── Notification/
 │   │       ├── INotificationSender.php   # send(to, title, message)
 │   │       ├── EmailNotifier.php
 │   │       └── SmsNotifier.php           # notify.lk
-│   └── Modules/
-│       ├── IFacade.php                   # empty marker — every module's public contract
-│       ├── SystemConfig/
-│       ├── Staff/
-│       ├── CustomerVehicle/
-│       ├── Identity/                     # requires: SystemConfig
-│       ├── Appointment/                  # requires: CustomerVehicle, Staff
-│       ├── Job/                          # requires: Staff, Billing, CustomerVehicle, Inventory
-│       ├── Billing/
-│       ├── Inventory/                    # requires: Supplier
-│       ├── Supplier/                     # requires: Staff
-│       └── Notification/                 # publishes to Valkey — delivery happens in worker/
-├── composer.json                         # vwork/domain — requires: vwork/shared
-└── tests/                                # Integration only — real Postgres + Valkey,
-                                          # infrastructure and modules exercised together
+│   └── test/                              # Vwork\Domain\Infrastructure\Test\
+└── modules/
+    ├── src/                               # Vwork\Domain\Modules\
+    │   ├── IFacade.php                    # empty marker — every module's public contract
+    │   ├── SystemConfig/
+    │   ├── Staff/
+    │   ├── CustomerVehicle/
+    │   ├── Identity/                      # requires: SystemConfig
+    │   ├── Appointment/                   # requires: CustomerVehicle, Staff
+    │   ├── Job/                           # requires: Staff, Billing, CustomerVehicle, Inventory
+    │   ├── Billing/
+    │   ├── Inventory/                     # requires: Supplier
+    │   ├── Supplier/                      # requires: Staff
+    │   └── Notification/                  # publishes to Valkey — delivery happens in worker/
+    └── test/                              # Vwork\Domain\Modules\Test\
 ```
 
 Each module still follows the same internal shape it always did — a facade, an entity, an `Entity/`folder, and an `Internal/` folder nothing outside the module ever reaches into:
 
 ```text
-domain/src/Modules/Job/
+domain/modules/Job/src/
 ├── IJobFacade.php
 ├── JobFacade.php
 ├── Entity/
@@ -259,9 +264,9 @@ domain/src/Modules/Job/
     └── JobRepository.php
 ```
 
-The dependency table above (`Identity` needs `SystemConfig`, `Appointment` needs `CustomerVehicle` and `Staff`, ...) is a discipline enforced by PHPat and code review, not by Composer — every module lives inside the same `vwork/domain` package, so Composer itself can't refuse to install one module without another.
+The dependency table above (`Identity` needs `SystemConfig`, `Appointment` needs `CustomerVehicle` and `Staff`, ...) is a discipline enforced by PHPat and code review, not by Composer — every module lives under the same `Vwork\Domain\Modules\` namespace root in the same single Composer package, so Composer itself can't refuse to install one module without another.
 
-A test proving "a module's facade actually works against real Postgres and real Valkey" is inherently testing the seam between `Infrastructure/` and `Modules/`, which is exactly what `domain/tests/` holds — real infrastructure, both halves exercised together, nothing faked. Anything faked (a module's facade against a fake `IDatabase`, `Database`'s reconnect logic against a fake `\PDO`) is a **Unit** test and lives right alongside the class it's testing, inside `domain/tests/` too, just never touching real Postgres or Valkey.
+A test proving "a module's facade actually works against real Postgres and real Valkey" is inherently testing the seam between `Infrastructure/` and `Modules/` — that's the `domain/test/` case from the open question above, not something either `infrastructure/test/` or `modules/test/` alone can honestly claim. Anything faked instead (a module's facade against a fake `IDatabase`, `Database`'s reconnect logic against a fake `\PDO`) is a **Unit** test that only needs its own root, and lives in `infrastructure/test/` or `modules/test/` respectively, right alongside the class it's testing, never touching real Postgres or Valkey.
 
 ## `web/` — the WebApp
 
@@ -274,14 +279,31 @@ web/
 │   ├── IAppBuilder.php
 │   ├── WebApp.php
 │   ├── AppBuilder.php
-│   ├── IHttpRegistry.php              # getController() / getMiddleware()
-│   ├── IServiceRegistry.php           # extends IDomainRegistry + IHttpRegistry
-│   ├── AppServiceRegistry.php
-│   ├── Http/                          # Request, Response, HttpMethods/Headers/Cookies
-│   ├── Controllers/                   # IController, Controller (view/payload/sseEvent), + concrete
+│   ├── Registry/
+│   │   ├── IHttpRegistry.php          # getController() / getMiddleware()
+│   │   ├── IServiceRegistry.php       # extends IDomainRegistry + IHttpRegistry
+│   │   └── AppServiceRegistry.php
+│   ├── Http/                          # Http related classes / enums
+│   │   ├── Request.php
+│   │   ├── Response.php
+│   │   ├── HttpMethods.php
+|   |   └── ...
+│   ├── Controllers/                   # concrete Controller implementations
+│   │   ├── IController.php
+│   │   ├── Controller.php
+|   |   └── ...
 │   ├── Middleware/                    # IMiddleware, Auth/Rbac/Validation
+│   │   ├── IMiddleware.php
+|   |   └── ...
 │   ├── Router/                        # IRouter, Router, RouteMatch, RouteContext
-│   ├── Pipeline/                      # IPipelineHandler/Factory, ControllerHandler, MiddlewareHandler
+│   │   ├── IRouter.php
+│   │   ├── Router.php
+│   │   ├── RouteMatch.php
+|   |   └── RouteContext.php
+│   ├── Pipeline/                      # Request handling pipeline (CoR)
+│   │   ├── IPipelineHandler.php
+│   │   ├── ControllerHandler.php
+|   |   └── MiddlewareHandler.php
 │   └── Utils/
 │       ├── View.php
 │       └── Csrf.php
@@ -297,17 +319,14 @@ web/
 ├── public/                            # web-server document root
 │   ├── index.php                      # worker-mode entrypoint
 │   └── index.dev.php                  # classic, single-call entrypoint
-├── tests/
+├── test/                              # Vwork\Web\Test\ (autoload-dev) — PHPUnit only
 │   ├── Unit/                          # Router, Pipeline, AppServiceRegistry — everything faked
 │   ├── Integration/                   # real Postgres/Valkey, a raw HTTP client — no browser involved
-│   └── e2e/                           # real Postgres/Valkey, a real browser (Playwright) — the full depth
-│                                      # of App alone, click to database. Not the same "e2e" as root tests/e2e —
-│                                      # this one never involves worker/, it's web's own end-to-end
+│   └── e2e/                           # not PHP, not namespaced — playwright tests
+│       └── package.json                   # Playwright's own deps — separate from the frontend build's package.json
 ├── package.json                       # Bun — TS/SCSS build only
 └── Dockerfile
 ```
-
-Playwright's own dependencies live in `web/tests/e2e/package.json`, kept separate from the frontend build's `package.json` — one is a build-time dependency shipping to `public/assets/`, the other is test-only and never ships anywhere.
 
 A controller's job is small and specific: read the request, call a facade with named arguments, hand the result to `view()`, `payload()`, or `sseEvent()`. It never touches Postgres, never touches Valkey directly.
 
@@ -331,11 +350,11 @@ worker/
 │   │   ├── facades.php
 │   │   └── eventHandlers.php          # keyed by PubSubTopics
 │   └── php-cli.ini                       # opache config
-├── tests/
+├── test/                              # Vwork\Worker\Test\ (autoload-dev)
 │   ├── Unit/
 │   └── Integration/                   # real Valkey — does QueueWorker actually react
 ├── Dockerfile                         # console/ shares this image
-└── queue-worker                       # `php worker/queue-worker`
+└── main.php                           # `php worker/queue-worker`
 ```
 
 No third tier here — there's no browser, no rendered UI, nothing an `e2e/` folder would test that `Integration/` doesn't already cover as the deepest possible check on `Worker` alone.
@@ -356,10 +375,10 @@ console/
 │   │   ├── infrastructure.php
 │   │   └── facades.php
 │   └── php-cli.ini                       # opache config
-├── tests/
+├── test/                                 # Vwork\Console\Test\ (autoload-dev)
 │   ├── Unit/
 │   └── Integration/                      # real Postgres — does MigrateCommand produce the right schema
-└── console                               # `php console/console migrate`
+└── main.php                              # `php console/console migrate`
 ```
 
 It has no `Dockerfile` of its own — it's built into `worker/`'s image and run with `docker compose exec worker php console/console <command>`.
@@ -369,11 +388,11 @@ It has no `Dockerfile` of its own — it's built into `worker/`'s image and run 
 Everything in this folder passes one test: no single deliverable — not `domain/`, not `web/`, not `worker/`, not `console/` — could honestly claim it on its own.
 
 ```text
-tests/
+tests/    # not autoloaded — root-level tooling only, no namespace of its own
 ├── Load/            # k6 / Gatling — whole-stack performance under realistic concurrent traffic
-├── Architecture/    # phpat / Deptrac — structural rules, checked across every package at once
+├── Architecture/    # phpat / Deptrac — structural rules, checked across the whole codebase at once
 └── Security/        # composer audit, secret scanning, dependency CVEs — whole-repo tooling,
-                     # not "does AuthMiddleware work" (that's web/tests/Integration/'s job)
+                     # not "does AuthMiddleware work" (that's web/test/Integration/'s job)
 
 migrations/  # Ordered SQL. No single module owns the whole schema, so this can't live inside domain/.
 ```
@@ -397,11 +416,11 @@ Admin isn't a separate app — it's a role, same as Technician or Supervisor, ga
 ## Checking your work
 
 ```bash
-vendor/bin/phpunit --testsuite=unit           # every package's own Unit/
+vendor/bin/phpunit --testsuite=unit           # every folder's own Unit/
 vendor/bin/phpunit --testsuite=integration     # domain/, web/, worker/, console/'s own Integration/
-vendor/bin/phpunit --testsuite=e2e-app         # web/tests/e2e — Playwright, click to database, App alone
-vendor/bin/phpat analyse                       # root tests/architecture — structural rules
-composer audit                                  # root tests/security — dependency CVEs
+vendor/bin/phpunit --testsuite=e2e-app         # web/e2e — Playwright, click to database, App alone
+vendor/bin/phpat analyse                       # root tests/Architecture — structural rules
+composer audit                                  # root tests/Security — dependency CVEs
 vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
 vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
 ```

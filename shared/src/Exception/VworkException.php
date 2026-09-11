@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace Vwork\Shared\Exception;
 
-use Error;
+use Exception;
 use Throwable;
 
 /**
- * A programmer or configuration mistake — never an expected runtime outcome.
- *
- * Thrown when something in vwork's own wiring is broken. If a VwrkError
- * fires, the fix is always a code change — never a caller catching it and
- * handling the situation gracefully. Not meant to be caught anywhere except
- * a single top-level boundary, which logs it and returns a generic failure
- * response — the caller never sees the real message.
- *
- * Extends PHP's own \Error (not \Exception) deliberately: it puts VwrkError
- * in the same category as TypeError/DivisionByZeroError — failures that
- * indicate broken code, not conditions a caller is expected to plan around.
+ * An expected, recoverable failure arising from legitimate runtime
+ * conditions — not a bug. A job that's already completed, a validation
+ * rule that failed, a webhook signature that didn't match, a record that
+ * doesn't exist. Correct code throws these regularly.
  */
-abstract class VwrkException extends Error
+abstract class VworkException extends Exception
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {

@@ -4,16 +4,16 @@
 # ===============================
 # Base PHP + Extensions (Shared)
 # ===============================
-FROM php:8.5-cli-trixie AS base
+FROM php:8.5.9-cli-trixie AS base
 
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
 RUN install-php-extensions \
-   pdo_pgsql \
-   redis \
    opcache \
    iconv \
-   @composer
+   pdo_pgsql \
+   redis-6.3.0 \
+   @composer-2.10.3
 
 WORKDIR /app
 
