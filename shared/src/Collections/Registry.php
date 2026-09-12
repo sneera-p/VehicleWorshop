@@ -29,22 +29,6 @@ abstract class Registry
     protected array $resolved = [];
 
     /**
-     * $this, narrowed to the interface bound to T. Each subclass implements
-     * this as `=> $this`, which only type-checks when the subclass actually
-     * implements T, making the generic contract concrete and enforceable.
-     *
-     * ```php
-     *  #[Override]
-     *  protected $registrar {
-     *      get => $this
-     *  }
-     * ```
-     *
-     * @var T $registrar
-     */
-    abstract protected object $registrar { get; }
-
-    /**
      * @param array<class-string, array<class-string, Closure(T): object>> $bindings
      * @param list<class-string> $allowedCategories
      */
@@ -61,10 +45,11 @@ abstract class Registry
     /**
      * @param class-string $category
      * @param class-string $key
+     * @param T $registrar - $this (child class object) narrowed to the interface bound to T
      *
      * @throws VworkError - if there is no registered service
      */
-    protected function resolve(string $category, string $key): object
+    protected function resolve(string $category, string $key, mixed $registrar): object
     {
         if (!in_array($category, $this->allowedCategories, strict: true)) {
             throw new VworkError("$category not allowed");
@@ -77,7 +62,7 @@ abstract class Registry
 
         $factory = $this->bindings[$category][$key] ?? null;
         if ($factory !== null) {
-            $instance = $factory($this->registrar);
+            $instance = $factory($registrar);
             $this->resolved[$category][$key] = $instance;
             return $instance;
         }

@@ -27,6 +27,6 @@ final class StubRegistry extends Registry
      */
     public function resolvePublic(string $category, string $key): object
     {
-        return $this->resolve($category, $key);
+        return $this->resolve($category, $key, $this);
     }
 }

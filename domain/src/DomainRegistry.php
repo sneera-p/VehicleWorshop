@@ -38,15 +38,10 @@ class DomainRegistry extends Registry implements IDomainRegistry
     }
 
     #[Override]
-    protected object $registrar {
-        get => $this;
-    }
-
-    #[Override]
     public function getInfrastructure(string $name): IInfrastructure
     {
         /** @var IInfrastructure $instance */
-        $instance = $this->resolve(IInfrastructure::class, $name);
+        $instance = $this->resolve(IInfrastructure::class, $name, $this);
         return $instance;
     }
 
@@ -54,7 +49,7 @@ class DomainRegistry extends Registry implements IDomainRegistry
     public function getFacade(string $name): IFacade
     {
         /** @var IFacade $instance */
-        $instance = $this->resolve(IFacade::class, $name);
+        $instance = $this->resolve(IFacade::class, $name, $this);
         return $instance;
     }
 }
