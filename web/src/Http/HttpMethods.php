@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Http;
 
+/**
+ * Contains only the Http Methods used by web/
+ *
+ * @author Senira <senirahan@gmail.com>
+ */
 enum HttpMethods: string
 {
     case GET = 'GET';

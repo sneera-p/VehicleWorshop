@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Http;
 
+/**
+ * Contains only the Headers used by web/
+ *
+ * @author Senira <senirahan@gmail.com>
+ */
 enum HttpHeaders: string
 {
     case ContentType = 'Content-Type';

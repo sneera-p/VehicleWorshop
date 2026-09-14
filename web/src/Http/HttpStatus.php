@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Http;
 
+/**
+ * Contains only the Http Response Statuses used by web/
+ *
+ * @author Senira <senirahan@gmail.com>
+ */
 enum HttpStatus: int
 {
     case Ok = 200;

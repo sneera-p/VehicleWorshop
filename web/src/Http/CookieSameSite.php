@@ -7,6 +7,8 @@ namespace Vwork\Web\Http;
 /**
  * Controls whether the browser attaches a cookie to cross-site requests —
  * the baseline defence against CSRF.
+ *
+ * @author Senira <senirahan@gmail.com>
  */
 enum CookieSameSite: string
 {
