@@ -1,0 +1,72 @@
+name: VehicleWorkshop
+
+include:
+   - ./docker-compose.yml
+
+# Adds test to the prod stack (web + db + cache), for standalone testing
+# runs against a prod build:
+#  `docker compose -f .docker/docker-compose.yml -f .docker/docker-compose.test.yml up`
+#
+# The `test` container carries PHP 8.5 + PHPUnit alongside Playwright, so
+# all three suites run from the one place:
+#   docker compose exec test vendor/bin/phpunit --testsuite unit
+#   docker compose exec test vendor/bin/phpunit --testsuite integration
+#   docker compose exec test bunx playwright test
+#
+# No bind mounts here — tests/ + playwright.config.ts are baked into the
+# `test` image stage at build time. docker-compose.dev.yml adds
+# bind mounts on top of this for live-editing specs without a rebuild.
+#
+# Networks (on top of docker-compose.yml's web_net/data_net):
+#   test_net — web, test. Internal; test talks to web here (e2e).
+#   data_net — test joins this too, so integration tests reach db/cache
+#              directly the way `worker` does, with no HTTP layer in
+#              between. Unit tests should touch neither network; if one
+#              needs db to pass, it's an integration test in disguise.
+
+services:
+   web:
+      networks:
+         test_net:
+            # Chromium refuses to navigate to single-label hostnames (treats
+            # them as search-bar queries, not real hosts) — "web" alone
+            # fails with ERR_CONNECTION_REFUSED even though DNS/TCP work
+            # fine. The dotted alias below is what BASE_URL points at.
+            aliases:
+               - web.local
+
+   test:
+      build:
+         context: ..
+         dockerfile: ./web/Dockerfile
+         target: test
+      # /app, not /web — the Dockerfile's test stage sets WORKDIR /app and
+      # copies source in there, so composer.json, vendor/bin/phpunit and
+      # web/test/e2e all live under /app. /web doesn't exist in the image.
+      working_dir: /app
+      environment:
+         BASE_URL: http://web.local
+         # Consumed by integration tests running in this container. Unit
+         # tests shouldn't read these at all.
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      depends_on:
+         web:
+            condition: service_healthy
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      networks:
+         - test_net
+         - data_net
+
+networks:
+   test_net:
+      driver: bridge
