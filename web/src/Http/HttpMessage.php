@@ -16,7 +16,7 @@ namespace Vwork\Web\Http;
  *
  * Deliberately mutable. No withX() cloning: message objects here are
  * built once, adjusted in place, and moved on — no PSR-7 baggage.
- * 
+ *
  * @author Senira <senirahan@gmail.com>
  */
 abstract class HttpMessage

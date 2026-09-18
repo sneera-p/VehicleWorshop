@@ -16,7 +16,7 @@ namespace Vwork\Web\Http;
  * Multi-file fields keep the same five keys but turn each into a parallel,
  * index-aligned array (SoA) rather than nesting per file (AoS) — hence the two named
  * constructors below.
- * 
+ *
  * @author Senira <senirahan@gmail.com>
  */
 final class UploadedFile
