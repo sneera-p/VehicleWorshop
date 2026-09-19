@@ -18,11 +18,11 @@
 
    "postCreateCommand": "git config core.hooksPath .githooks && chmod +x .githooks/*",
 
-   "forwardPorts": [9003],
+   "forwardPorts": ["web:80", 9003],
    "portsAttributes": {
-      "80": {
-         "label": "HTTP",
-         "onAutoForward": "openBrowserOnce"
+      "web:80": {
+         "label": "vwork",
+         "onAutoForward": "openBrowser"
       },
       "9003": {
          "label": "PHP Xdebug",
