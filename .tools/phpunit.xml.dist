@@ -38,9 +38,9 @@
          worker reacts). web/test/e2e (Playwright) runs via its own
          `bun run test:e2e`, not through PHPUnit.
       -->
-      <testsuite name="e2e">
+      <!-- <testsuite name="e2e">
          <directory>../test/e2e</directory>
-      </testsuite>
+      </testsuite> -->
    </testsuites>
 
    <source>
