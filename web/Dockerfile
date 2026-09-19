@@ -149,7 +149,7 @@ RUN apt-get update \
    php${PHP_V}-{cli,pgsql,redis,mbstring,xml,curl,zip} \
    && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer:2.10.3 /usr/bin/composer /usr/local/bin/composer
+COPY --from=base /usr/local/bin/composer /usr/local/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
@@ -194,10 +194,9 @@ COPY --exclude=worker \
    --exclude=console \
    --exclude=web/resources/ts \
    --exclude=web/resources/scss \
-   --exclude=web/tests \
+   --exclude=**/test \
    --exclude=package.json \
    --exclude=bun.lock* \
-   --exclude=.tools \
    . .
 
 RUN composer install \

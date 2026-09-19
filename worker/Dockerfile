@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
 
+ARG PHP_IMAGE=php:8.5.9-cli-trixie@sha256:0e17ef0527f296b85bfe4cfb5219b29cafc37224857ed73d28628ea142930ac8
+
 
 # ===============================
 # Base PHP + Extensions (Shared)
 # ===============================
-FROM php:8.5.9-cli-trixie AS base
+FROM ${PHP_IMAGE} AS base
 
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
@@ -57,7 +59,7 @@ CMD ["php", "worker/main.php"]
 FROM base AS prod
 
 COPY --exclude=web \
-   --exclude=.tools \
+   --exclude=**/test \
    --exclude=package.json \
    --exclude=bun.lock* \
    . .
@@ -66,6 +68,7 @@ RUN composer install \
    --no-dev \
    --no-scripts \
    --prefer-dist \
-   --optimize-autoloader
+   --optimize-autoloader \
+   && rm -rf "$(composer config cache-dir)"
 
 CMD ["php", "worker/main.php"]
