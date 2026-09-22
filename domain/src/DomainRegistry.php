@@ -40,16 +40,14 @@ class DomainRegistry extends Registry implements IDomainRegistry
     #[Override]
     public function getInfrastructure(string $name): IInfrastructure
     {
-        /** @var IInfrastructure $instance */
-        $instance = $this->resolve(IInfrastructure::class, $name, $this);
-        return $instance;
+        /** @var IInfrastructure */
+        return $this->resolve(IInfrastructure::class, $name, $this);
     }
 
     #[Override]
     public function getFacade(string $name): IFacade
     {
-        /** @var IFacade $instance */
-        $instance = $this->resolve(IFacade::class, $name, $this);
-        return $instance;
+        /** @var IFacade */
+        return $this->resolve(IFacade::class, $name, $this);
     }
 }
