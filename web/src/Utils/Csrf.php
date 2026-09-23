@@ -1,5 +1,7 @@
 <?php
 
+namespace Vwork\Web\Utils;
+
 use Vwork\Shared\Types\Cast;
 use Vwork\Web\WebError;
 
@@ -10,24 +12,29 @@ use Vwork\Web\WebError;
  */
 final class Csrf
 {
-    public static function create(string $sessionId): string
-    {
-        return hash_hmac('sha256', $sessionId, self::key());
-    }
-
-    public static function verify(string $id, string $token): bool
-    {
-        return hash_equals(self::create($id), $token);
-    }
-
+    /**
+     * Reads Csrf key from ENV
+     *
+     * @throws WebError if ENV variable CSRF_KEY is not set
+     */
     private static function key(): string
     {
-        static $key = getenv('CSRF_KEY');
+        $key = getenv('CSRF_KEY');
 
         if ($key === false || $key === '') {
             throw new WebError('CSRF_KEY is not set');
         }
 
         return Cast::string($key);
+    }
+
+    public static function create(string $sessionId): string
+    {
+        return hash_hmac('sha256', $sessionId, self::key());
+    }
+
+    public static function verify(string $sessionId, string $token): bool
+    {
+        return hash_equals(self::create($sessionId), $token);
     }
 }
