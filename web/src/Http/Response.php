@@ -217,7 +217,7 @@ final class Response extends HttpMessage
     /**
      * Renders "name=value; Attr; Attr" as it appears on the wire.
      */
-    private function renderCookie(
+    private static function renderCookie(
         HttpCookies $name,
         string $value,
         bool $secure,

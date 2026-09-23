@@ -7,6 +7,7 @@ namespace Vwork\Web\Http;
 use Override;
 use Vwork\Shared\Types\Cast;
 use Vwork\Web\WebError;
+use Vwork\Web\WebException;
 
 /**
  * What came in.
@@ -51,6 +52,7 @@ final class Request extends HttpMessage
 
     /**
      * Parsed on first read, then kept — a Request never changes.
+     // A request MUST NOT change it's Cookie contents
      *
      * @var array<value-of<HttpCookies>, string>
      */
@@ -83,6 +85,25 @@ final class Request extends HttpMessage
         public readonly string $ip,
     ) {
         parent::__construct($headers);
+    }
+
+
+    #[Override]
+    public function addHeader(HttpHeaders $key, string $value): static
+    {
+        if ($key === HttpHeaders::Cookie) {
+            throw new WebError("Can't modify incoming cookies");
+        }
+        return parent::addHeader($key, $value);
+    }
+
+    #[Override]
+    public function rmHeader(HttpHeaders $key): static
+    {
+        if ($key === HttpHeaders::Cookie) {
+            throw new WebError("Can't modify incoming cookies");
+        }
+        return parent::rmHeader($key);
     }
 
 
@@ -163,14 +184,14 @@ final class Request extends HttpMessage
      * for $_SERVER/$_GET/$_POST/$_FILES elsewhere means the data belongs
      * on Request instead.
      *
-     * @throws WebError if the method isn't one HttpMethods knows
+     * @throws WebException if the method isn't one HttpMethods knows
      */
     public static function fromGlobals(): self
     {
         $methodString = strtoupper(Cast::string($_SERVER['REQUEST_METHOD']));
         $method = HttpMethods::tryFrom($methodString);
         if ($method === null) {
-            throw new WebError("Unsupported HTTP method: {$methodString}");
+            throw new WebException("Unsupported HTTP method: {$methodString}");
         }
 
         // body, formData and files all get captured here together: PHP eats
