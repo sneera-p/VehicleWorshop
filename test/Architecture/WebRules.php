@@ -22,8 +22,8 @@ use PHPat\Test\PHPat;
  *     It wires them; they never reach back up at it.
  *  3. A strict dependency ladder between the subfolders:
  *
- *        Utils/       -> (nothing)
  *        Http/        -> (nothing)
+ *        Utils/       -> (nothing)
  *        Controllers/ -> Http, Utils
  *        Middleware/  -> Http, Utils
  *        Pipeline/    -> Controllers, Middleware, Http, Utils
@@ -31,6 +31,8 @@ use PHPat\Test\PHPat;
  *
  *     Utils/ and Http/ are both leaves and mutually exclusive — neither
  *     may touch the other.
+ *
+ * @author Senira <senirahan@gmail.com>
  */
 final class WebRules
 {
@@ -42,8 +44,8 @@ final class WebRules
      * @var list<string>
      */
     private array $ladder = [
-        'Utils',
         'Http',
+        'Utils',
         'Controllers',
         'Middleware',
         'Pipeline',
@@ -59,8 +61,8 @@ final class WebRules
      * @var array<string,list<string>>
      */
     private array $peers = [
-        'Utils' => ['Http'],
         'Http' => ['Utils'],
+        'Utils' => ['Http'],
         'Controllers' => ['Middleware', 'Pipeline'],
         'Middleware' => ['Controllers', 'Pipeline'],
         'Pipeline' => ['Controllers', 'Middleware']

@@ -15,7 +15,7 @@
    -->
    <testsuites>
       <testsuite name="unit">
-         <directory>../shared/*/test</directory>
+         <directory>../shared/test</directory>
          <directory>../domain/infrastructure/test</directory>
          <directory>../domain/modules/test</directory>
          <directory>../web/test/Unit</directory>
@@ -47,6 +47,8 @@
       <include>
          <directory>../shared/src</directory>
          <directory>../domain/src</directory>
+         <directory>../domain/infrastructure/src</directory>
+         <directory>../domain/modules/src</directory>
          <directory>../web/src</directory>
          <directory>../worker/src</directory>
          <directory>../console/src</directory>

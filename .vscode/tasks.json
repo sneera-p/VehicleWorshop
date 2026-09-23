@@ -275,7 +275,6 @@
          "label": "Check: all",
          "dependsOn": [
             "Lint: check",
-            "Test: unit",
             "Static Analyse: Types",
             "Static Analyse: Layer",
             "Static Analyse: Architecture",

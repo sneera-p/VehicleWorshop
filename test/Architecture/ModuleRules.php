@@ -10,25 +10,27 @@ use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
 
 /**
+ * Covers the extra rules in Modules that Deptrac cannot
+ *
  * Deptrac covers Layering rules
  *  1. Modules depends only on Shared and Infrastructure
+ *
+ * Module structure:
+ *  - IModuleFacade.php
+ *  - ModuleFacade.php
+ *  - Entity/
+ *      - ThisEntity.php
+ *      - ThatEntity.php
+ *      - ...
+ *  - Internal/
+ *      - ModuleRepository.php
+ *      - ThatInternal.php
+ *      - ...
+ *
+ * @author Senira <senirahan@gmail.com>
  */
 final class ModuleRules
 {
-    /**
-     * Module structure:
-     *  - IModuleFacade.php
-     *  - ModuleFacade.php
-     *  - Entity/
-     *      - ThisEntity.php
-     *      - ThatEntity.php
-     *      - ...
-     *  - Internal/
-     *      - ModuleRepository.php
-     *      - ThatInternal.php
-     *      - ...
-     */
-
     /** @var array<string,list<string>> */
     private array $moduleDeps = [
         'SystemConfig' => [],

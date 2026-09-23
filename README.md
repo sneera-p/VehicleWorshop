@@ -1,584 +1,951 @@
 # Vwork — Vehicle Workshop Management System
 
-A pure PHP modular monolith MVC for small-to-medium vehicle workshops (≤200 staff, ~2,000 active customers). No framework, no ORM, no HTMX
+A workshop management system for small-to-medium scale garages, written in plain PHP 8.5.
 
-Routing, DI, and the request pipeline are all hand-rolled, on purpose, so the team learns PHP from first principles instead of a framework's opinions.
+It is a **modular monolith** with an MVC web front end and a background worker. There is no framework and no ORM. Routing, dependency wiring and the request pipeline are hand-rolled on purpose, so the team learns how these pieces work from first principles instead of inheriting a framework's opinions.
 
-## The shape of the system
+## Contents
 
-`vwork` is **one Composer package**, with a PSR-4 namespace root mapped to each top-level folder's `src/` (and a matching `autoload-dev` root for each folder's `test/`). Deptrac and PHPat enforce package boundaries.
+- [Design diagrams](#design-diagrams)
+- [Architecture](#architecture)
+  - [Processes](#processes)
+  - [Layers and dependency rules](#layers-and-dependency-rules)
+  - [The registry](#the-registry)
+  - [Where services are registered](#where-services-are-registered)
+  - [A request, end to end](#a-request-end-to-end)
+  - [Events: web → worker](#events-web--worker)
+  - [Errors](#errors)
+- [Adding an endpoint](#adding-an-endpoint)
+- [Adding a service](#adding-a-service)
+  - [Facade (module)](#facade-module)
+  - [Controller](#controller)
+  - [Middleware](#middleware)
+  - [Infrastructure](#infrastructure)
+  - [EventHandler](#eventhandler)
+- [Repository layout](#repository-layout)
+- [Development](#development)
+- [Tests and checks](#tests-and-checks)
+- [Conventions](#conventions)
 
-| Folder | What it is | Depends on |
+---
+
+## Design diagrams
+
+The draw.io sources live in `docs/`. Open them with draw.io or the VS Code draw.io extension.
+
+| File | Covers |
+| --- | --- |
+| [`docs/UseCase.drawio`](docs/UseCase.drawio) | Use cases per actor, grouped by module |
+| [`docs/Activity.drawio`](docs/Activity.drawio) | Activity diagram per workflow |
+| [`docs/State.drawio`](docs/State.drawio) | Entity state machines |
+| [`docs/EntityRelation.drawio`](docs/EntityRelation.drawio) | Database schema |
+| [`docs/Class.drawio`](docs/Class.drawio) | Class design: modules, web app, worker and console, infrastructure, exception hierarchy |
+
+The rest of this README explains how the code is put together. For what the system does, use the diagrams.
+
+---
+
+## Architecture
+
+### Processes
+
+| Process | Folder | Job | Runtime |
+| --- | --- | --- | --- |
+| **Web** | `web/` | The only HTTP-facing process. Request → router → middleware → controller → module facades → response. | FrankenPHP: classic mode in dev, worker mode in prod |
+| **Worker** | `worker/` | Subscribes to Valkey pub/sub and runs side effects (email, SMS, notifications) off the request path. | Long-running PHP CLI |
+| **Console** | `console/` | Operator commands run by hand (migrations, admin tasks). Not a standing process. | PHP CLI, executed inside the worker container |
+
+All three sit on the same `domain/`: the **modules** hold the business logic, and the **infrastructure** talks to Postgres, Valkey, SMTP and external APIs. The three processes never depend on each other. `web/` publishes an event and `worker/` reacts to it; neither knows the other exists.
+
+### Layers and dependency rules
+
+```mermaid
+flowchart TD
+    web["web/"] --> modules["domain/modules"]
+    worker["worker/"] --> modules
+    console["console/"] --> modules
+    web --> shared["shared/"]
+    worker --> shared
+    console --> shared
+    modules --> infra["domain/infrastructure"]
+    modules --> shared
+    infra --> shared
+```
+
+| Layer | Namespace | May depend on |
 | --- | --- | --- |
-| **`shared/`** | Small, dependency-free utilities such as a generic trie, the exception hierarchy, validators. Zero domain knowledge, zero HTTP knowledge. | nothing |
-| **`domain/`** | All business logic. Every module (Job, Billing, Staff, ...) and the infrastructure they run on (Postgres, Valkey, email/SMS). The heart of the app. | `shared/` |
-| **`web/`** | The HTTP-facing process. Routing, controllers, middleware, views. | `domain/`, `shared/` |
-| **`worker/`** | A plain CLI process that listens on Valkey and does whatever shouldn't block an HTTP response: sending emails, texting customers, restocking inventory. | `domain/`, `shared/` |
-| **`console/`** | CLI tooling for migrations, staff management, anything run by hand rather than by a request. | `domain/`, `shared/` |
-| **`tests/`** (root) | Tests that no single deliverable can honestly claim alone: load, architecture, and security tests. | everything |
+| Shared | `Vwork\Shared\` | nothing — no domain or HTTP knowledge |
+| Infrastructure | `Vwork\Domain\Infrastructure\` | Shared |
+| Modules | `Vwork\Domain\Modules\` | Infrastructure, Shared |
+| Web / Worker / Console | `Vwork\Web\`, `Vwork\Worker\`, `Vwork\Console\` | Modules, Shared |
 
-### Running the System (4 Containers)
+`IDomainRegistry` / `DomainRegistry` sit in `Vwork\Domain\` (`domain/src/`). They are the seam every process reaches the domain through.
 
-Only **two core processes** run continuously alongside the infrastructure layer:
+Three tools enforce this:
 
-| Container / Service | Role |
-| --- | --- |
-| **WebApp** | Handles incoming web requests and user actions. |
-| **QueueWorker** | Processes background tasks and events asynchronously. |
-| **Postgres** | Primary database. |
-| **Valkey** | Cache and Event broker. |
+- **Deptrac** (`.tools/deptrac.php`) enforces the layer table above.
+- **PHPat** (`test/Architecture/`) enforces what Deptrac can't express:
+  - `ModuleRules.php`: which modules may use which, and facade and `Internal/` privacy.
+  - `InfrastructureRules.php`: concrete infrastructure classes and `Internal/` are private.
+  - `WebRules.php`: controllers and middleware are private to configuration, the composition root is invisible to subfolders, and the subfolder dependency ladder.
+- **PHPStan** runs at level `max`.
 
-`console/` is not a standing process. To avoid idle container costs, admin and migration tasks execute on-demand inside the running `worker` container:
+The web subfolder ladder (`WebRules.php`) — each folder may only depend on the folders to its right:
 
-```bash
-docker compose exec worker php console/main.php migrate
+```text
+Http/        → nothing
+Utils/       → nothing            (Http and Utils may not touch each other)
+Controllers/ → Http, Utils
+Middleware/  → Http, Utils        (Controllers and Middleware are peers)
+Pipeline/    → Controllers, Middleware, Http, Utils
+Router/      → Pipeline, Controllers, Middleware, Http, Utils
 ```
+
+The files directly in `Vwork\Web\` form the composition root (`AppBuilder`, `AppServiceRegistry`, …). They wire the subfolders, and no subfolder may reference them.
+
+### The registry
+
+Every process builds **one registry** at boot. Every facade, infrastructure object, controller, middleware and event handler is resolved through it, and each is built **at most once per process**. This is how the codebase gets shared single instances without `getInstance()` or private constructors.
+
+`Vwork\Shared\Collections\Registry` holds bindings grouped by **category**:
+
+```php
+array<class-string $category, array<string $key, Closure(registry): object>>
+```
+
+- **Lazy:** nothing is built up front. The first lookup of a key runs its closure, caches the result, and returns it. Every later lookup returns the same instance, and unused services cost nothing.
+- **Self-resolving:** each closure receives the registry, so it pulls its own dependencies back out of it. This is constructor injection with no autowiring.
+- **Fails loudly:** a missing binding throws `VworkError` naming the key, at the point of use. An unknown category fails when the registry is constructed.
+
+| Registry | Categories | Lookups |
+| --- | --- | --- |
+| `DomainRegistry` (`IDomainRegistry`) | `IInfrastructure`, `IFacade` | `getInfrastructure()`, `getFacade()` |
+| `AppServiceRegistry` (web) | + `IController`, `IMiddleware` | + `getController()`, `getMiddleware()` |
+| `WorkerServiceRegistry` (worker) | + event handlers, keyed by `PubSubTopics` | + `getEventHandler()` |
+| `ConsoleServiceRegistry` (console) | + command handlers | + `getCommandHandler()` |
+
+Because instances live for the whole process (FrankenPHP worker mode keeps the web app in memory across requests), **services must be stateless**. Never keep per-request data on a facade, controller or middleware; pass it through arguments and pipeline attributes.
+
+### Where services are registered
+
+Bindings are plain PHP files under each process's `config/`. Each file `return`s a map of key → closure. They have no namespace; they are `require`d, not autoloaded.
+
+| Process | File | Category | Keyed by |
+| --- | --- | --- | --- |
+| web | `web/config/services/infrastructure.php` | `IInfrastructure` | interface |
+| web | `web/config/services/modules.php` | `IFacade` | interface |
+| web | `web/config/services/middleware.php` | `IMiddleware` | concrete class |
+| web | `web/config/services/controllers.php` | `IController` | concrete class |
+| web | `web/config/routes/*.php` | routes (read by `AppBuilder`) | — |
+| worker | `worker/config/services/infrastructure.php` | `IInfrastructure` | interface |
+| worker | `worker/config/services/modules.php` | `IFacade` | interface |
+| worker | `worker/config/services/eventHandlers.php` | event handlers | `PubSubTopics` value |
+| console | `console/config/services/infrastructure.php` | `IInfrastructure` | interface |
+| console | `console/config/services/modules.php` | `IFacade` | interface |
+| console | `console/config/services/commands.php` | command handlers | command name |
+
+**Each process has its own complete set of bindings.** A facade used by both web and worker is registered in both `modules.php` files; no process assumes another's bindings cover what it needs.
+
+Facades and infrastructure are keyed by **interface**, because their consumers only ever know the interface. Controllers and middleware are keyed by **concrete class**. They are the end of the line: only route configuration names them, and nothing else depends on them.
+
+### A request, end to end
+
+```mermaid
+flowchart LR
+    G["Superglobals"] --> R["Request::fromGlobals()"]
+    R --> T["Router<br/>(StaticTrie)"]
+    T -->|Found| M1["Middleware 1"] --> M2["Middleware n"] --> C["Controller"]
+    C --> F["Module facade"]
+    C --> S["Response::send()"]
+    T -->|"NotFound / NotAllowed"| S
+    M1 -. "short-circuit" .-> S
+    F -. "publish" .-> P[("Valkey pub/sub")]
+```
+
+**At boot, once per process:**
+
+1. `AppBuilder` loads the service files and route files listed above.
+2. For each route, `PipelineFactory` resolves the route's middleware and controller from the registry. It wraps them into a nested chain of `IPipelineHandler`s — `MiddlewareHandler` → … → `ControllerHandler` — and stores the chain at the route's leaf in the router's `StaticTrie`.
+3. `AppBuilder` builds the `IApp`. The app object is callable, so it is handed straight to FrankenPHP's worker loop.
+
+**For each request:**
+
+1. `Request::fromGlobals()` reads `$_SERVER`, `$_GET`, `$_POST`, `$_FILES` and `php://input` once. **No other code reads superglobals.**
+2. The router matches the method and path and returns a `RouteMatch`: `Found` with the handler chain and path params, or `NotFound` / `NotAllowed`.
+3. The chain runs. Each middleware receives the request, the **attributes** array (path params plus whatever earlier middleware added), the route's `RouteContext`, and `$next`. It either returns its own `Response` (short-circuit) or calls `$next->handle(...)`.
+4. The controller reads the request and attributes, calls module facades, and returns a `Response`.
+5. `Response::send()` writes the status, headers and body. The body is written by a closure, so a page, a file download and an SSE stream all go out through the same call.
+
+### Events: web → worker
+
+Anything slow or external (email, SMS) is taken off the request path:
+
+1. A facade publishes a `PubSubTopics` case with a JSON payload through `IPubSub`.
+2. The worker is subscribed to every topic that has a registered handler.
+3. It dispatches each message to that topic's `IEventHandler`.
+4. The handler calls a module facade — the same facades the web app uses.
+
+Topics are the `PubSubTopics` enum (`domain/infrastructure/src/PubSub/PubSubTopics.php`); values are `<entity>.<event>`, e.g. `job.updated`.
+
+### Errors
+
+There are two roots, in `shared/src/Exception/`:
+
+- **`VworkError`** (extends `\Error`): the code or configuration is wrong. Don't catch it and handle it; fix the code. Only the top-level boundary catches it, to log it and return a generic 500.
+- **`VworkException`** (extends `\Exception`): the world didn't cooperate — a failed validation, a missing record, a declined payment. Correct code throws these routinely, and callers catch them.
+
+Each area has its own subclass pair, so callers can catch one area in one sweep: `InfrastructureError` / `InfrastructureException`, `WebError` / `WebException`, and so on. The full hierarchy is in `docs/Class.drawio`.
 
 ---
 
-### Dependency Flow & Isolation
+## Adding an endpoint
 
-To keep components decoupled, dependencies flow strictly in **one direction**:
+This example adds `POST /staff/jobs/{id}/ready-for-qa`, which lets a technician mark their job ready for QA. It touches four places:
 
-```bash
-[ WebApp (web) ]      [ QueueWorker (worker) ]      [ Admin CLI (console) ]
-       \                         |                         /
-        +------------------------+------------------------+
-                                 |
-                                 v
-                         [ Domain Layer ]
-                                 |
-                                 v
-                         [ Shared Layer ]
+| # | What | Where |
+| --- | --- | --- |
+| 1 | Facade method | `domain/modules/src/Job/` |
+| 2 | Controller action | `web/src/Controllers/JobController.php` |
+| 3 | Route | `web/config/routes/staff.php` |
+| 4 | Bindings (only for classes that are new) | `web/config/services/*.php` |
 
+**1. Facade method.** Add the use case to the module's interface and implement it. See [Facade](#facade-module).
+
+```php
+// domain/modules/src/Job/IJobFacade.php
+public function markReadyForQa(int $jobId, int $technicianId): Job;
 ```
 
-* **`shared/`**: Base foundation (validators, exceptions, serializers).
-* **`domain/`**: Core business logic (infrastructure, modules).
-* **`web/`**, **`worker/`**, **`console/`**: Delivery mechanisms. They depend on `domain/`, but **never on each other**.
+**2. Controller action.** Every action has the same signature: it receives the `Request` and the pipeline attributes and returns a `Response`. See [Controller](#controller).
 
----
-
-### Event-Driven Communication
-
-Because `web/` and `worker/` do not import or talk to each other directly:
-
-1. **`web/`** publishes an event payload to **Event Broker (Valkey)**.
-2. **`worker/`** listens to Event Broker and processes the event.
-
-Neither process knows the other exists. This strict separation is automatically enforced at build time by **Deptrac** and **PHPat** module rules — there's no Composer package boundary to lean on anymore, so these are the only things stopping `web/` from importing `worker/` directly.
-
-## The story of the architecture
-
-Before anything was built, the actual requirements were written down and grouped into natural clusters: Appointments, Jobs, Billing, Inventory, Staff, and Identity. Each cluster represented a coherent area of responsibility—a **module**.
-
-Modules aren't islands. Booking an appointment needs to know which vehicle it's for (`CustomerVehicle`), and completing a job requires checking `Inventory` and generating a bill in `Billing`. To share responsibilities cleanly, modules express their dependencies through **constructor injection**—receiving references to the other modules they need upon creation, never instantiating them directly.
-
-Buried inside these modules was code that had nothing to do with business logic—opening database connections, publishing to queues, or checking caches. That code didn't know anything about jobs or invoices; it only knew how to talk to Postgres, Valkey, or SMTP. It was pulled out into its own layer: **Infrastructure**. The `domain/` package split cleanly into two parts: `Modules/` holding pure business logic, and `Infrastructure/` holding everything business logic depends on to interact with the outside world.
-
-To prevent ten separate modules from opening ten redundant connections to the same database, the architecture needed a way to manage singletons without relying on anti-patterns like private constructors or global `getInstance()` methods.
-
-Borrowing the core concept from microservice **service registries**, `IDomainRegistry` was created. It acts as a central lookup table, mapping service interfaces to small construction closures. The registry instantiates nothing up front. The first time a service is requested, the registry runs its closure, caches the resulting instance, and serves that same instance to every subsequent caller. Unused services cost nothing, and every component gets shared access to the exact same resources.
-
-With `domain/` complete, three distinct delivery fronts were built around it, all accessing business logic through the exact same facades:
-
-* **`web/` (WebApp):** Runs on FrankenPHP’s worker mode. It bootstraps the application once via `AppBuilder` and remains warm in memory. Incoming raw superglobals are converted into an immutable `Request` object, passed through a Trie-based `Router`, and sent through a nested middleware pipeline (`AuthMiddleware`, `RbacMiddleware`) to a Controller. The Controller delegates to a domain facade and returns a `Response`.
-* **`worker/` (QueueWorker):** Handles asynchronous side effects like sending emails or processing payroll. Instead of making HTTP callers wait, domain facades publish small event payloads to Valkey. `QueueWorker` listens continuously to these channels and dispatches events to dedicated `EventHandler` classes.
-* **`console/` (Console):** Serves manual operations like database migrations or admin tasks. It bypasses HTTP pipelines and event loops entirely, executing commands directly against domain facades or `IDatabase`.
-
-### The HTTP Pipeline (`web/`)
-
-A request hits the socket, FrankenPHP parses the raw bytes into PHP superglobals (`$_SERVER`, `$_GET`, `$_POST`), and the application immediately wraps them into a clean, immutable `Request` object. From that moment on, superglobals are dead to the codebase.
-
-```bash
-       [ Raw Bytes / Superglobals ]
-                    |
-                    v
-          [ Immutable Request ]
-                    |
-                    v
-            [ Trie Router ]
-                    |
-                    v
-       +-------------------------+
-       |   PIPELINE / MIDDLEWARE |
-       |                         |
-       |  [ AuthMiddleware ]     |
-       |          |              |
-       |  [ RbacMiddleware ]     |
-       |          |              |
-       |  [ ValidationStep ]     |
-       +-------------------------+
-                    |
-                    v
-             [ Controller ]
-                    |
-       +------------+------------+
-       |                         |
-       v                         v
-[ Domain Facade ]       [ Return Response ]
-       |
-       +---> (Sync)  --> Postgres
-       |
-       +---> (Async) --> Valkey PubSub
+```php
+// web/src/Controllers/JobController.php
+public function markReadyForQa(Request $request, array $attributes): Response
 ```
 
-The `Request` enters the **Trie Router**—a tree walked segment-by-segment to locate the target route. The router returns a pre-built execution pipeline where middleware wraps middleware, which ultimately wraps the controller action.
-
-1. **`AuthMiddleware`** verifies the identity.
-2. **`RbacMiddleware`** checks permissions.
-3. **`ValidationStep`** checks the payload integrity.
-
-If any layer rejects the request, execution short-circuits. If every layer agrees, control reaches the **Controller**. The controller’s job is deliberately thin: pull arguments from the `Request`, delegate work to a domain facade (`JobFacade`, `StaffFacade`), and wrap the result into an HTTP `Response`. It never interacts with storage or caches directly; the facade handles that through the registry.
-
----
-
-### Asynchronous Offloading (`worker/`)
-
-When a request triggers side effects that shouldn't delay the user—like sending SMS, processing notifications, or running accounting jobs—the domain facade publishes a lightweight event payload to **Valkey** and continues without waiting. The HTTP response drops back to the user immediately.
-
-Behind the scenes, **`worker/` (QueueWorker)** operates as a dedicated process with no HTTP awareness:
-
-```bash
-       Valkey PubSub
-             |
-             v
-      [ QueueWorker ]
-             |
-             v
-      [ EventHandler ]
-             |
-             v
-      [ Domain Facade ]
-
-```
-
-* It boots up, checks its registry for registered topics, and blocks while listening.
-* When a message lands on Valkey, the worker routes it to a matched **`EventHandler`**.
-* The handler calls directly into the target domain facade—the exact same facade a controller would use, executed from the queue instead of an HTTP socket.
-
----
-
-### On-Demand Execution (`console/`)
-
-Administrative actions, database migrations, seeding, manual triggers bypass HTTP pipelines, routing, and pub/sub loops entirely. **`console/`** boots directly, queries the registry for commands or core interfaces like `IDatabase`, and executes the work directly against the domain.
-
----
-
-To maintain stability across all three fronts, a few core principles govern the entire codebase:
-
-* **Explicit Wiring:** Dependencies are manually wired in `services/*.php` files—autowiring is explicitly avoided so missing dependencies fail deterministically.
-* **Stateless Singletons:** Facades, controllers, and middleware carry no request-specific state, allowing them to sit safely in memory across persistent process loops.
-* **Strict Error Taxonomy:** System failures and bugs extend from `VwrkError`, while expected business condition failures (such as payment declines) extend from `VwrkException`.
-
----
-
-## `shared/` — generic, dependency-free utilities
-
-The one test every file here has to pass: it carries **no** domain knowledge and **no** transport knowledge, regardless of how many packages use it. `IStaticTrie` is a good example, it backs `web/`'s router today, but it doesn't know what a route is; it could back a permission tree tomorrow without changing a line.
-
-```text
-shared/
-├── src/                             # Vwork\Shared\
-│   ├── Collections/
-│   │   ├── IStaticTrie.php
-│   │   └── TrieNode.php
-│   ├── Exception/
-│   │   ├── VwrkError.php           # the code is wrong — never caught, just fixed
-│   │   └── VwrkException.php       # the world didn't cooperate — caught and handled
-│   └── Validators/                 # VIN, email, NIC, a generic Rule interface
-└── test/                            # Vwork\Shared\Test\ (autoload-dev only)
-```
-
-## `domain/` — the business logic
-
-Everything a real request cares about lives here: the modules (Job, Billing, Staff, ...) and the infrastructure they run on. Every module exposes exactly one public thing, a **facade** — nothing outside a module ever reaches into its internals, not another module, not `web/`, not `worker/`. Entities never leave a module either; a facade returns a real `Job` object, but nothing outside the module ever constructs one.
-
-Every consumer of `domain/` reaches it through exactly one interface, `IDomainRegistry` — "give me this facade" or "give me this piece of infrastructure." Nothing more is exposed, and `domain/` never depends outward on anything except `shared/`.
-
-`Infrastructure/` and `Modules/` are now two independent PSR-4 namespace roots (`Vwork\Domain\Infrastructure\`, `Vwork\Domain\Modules\`) rather than folders nested under one, giving Deptrac/PHPat a namespace boundary to check directly instead of a folder convention. `IDomainRegistry.php` itself sits under a small third root, `Vwork\Domain\` at `domain/src/` — it's the seam interface both other roots depend on and doesn't belong to either.
-
-> **Open question, not yet decided:** with `Infrastructure/` and `Modules/` split into separate `test/` roots, where do integration tests that exercise the seam between them (a facade against a real Postgres/Valkey `Infrastructure/`) live? Proposed default below is a root-level `domain/test/` (`Vwork\Domain\Test\`) alongside `domain/src/`, but this needs confirming before it's real.
-
-```text
-domain/
-├── src/                                  # Vwork\Domain\ — just the seam contract, nothing else
-│   └── IDomainRegistry.php               # the one door in
-├── test/                                 # Vwork\Domain\Test\ (proposed — see open question above)
-│                                         # Integration only — real Postgres + Valkey,
-│                                         # infrastructure and modules exercised together
-├── infrastructure/
-│   ├── src/                              # Vwork\Domain\Infrastructure\
-│   │   ├── IInfrastructure.php           # connect() / reconnect()
-│   │   ├── Database/
-│   │   │   ├── IDatabase.php             # runTransaction(), query() — no entity knowledge at all
-│   │   │   └── Database.php              # Postgres, via PDO
-│   │   ├── PubSub/
-│   │   │   ├── IPubSub.php
-│   │   │   ├── ValkeyPubSub.php          # its own Redis connection
-│   │   │   └── PubSubTopics.php          # every event the system can fire
-│   │   ├── Cache/
-│   │   │   ├── ICache.php
-│   │   │   └── ValkeyCache.php           # its own Redis connection — never shared with PubSub
-│   │   ├── Logging/
-│   │   │   ├── ILogger.php
-│   │   │   ├── StreamLogger.php
-│   │   │   ├── DatabaseLogger.php
-│   │   │   └── NullLogger.php
-│   │   ├── Email/
-│   │   │   ├── IEmailServer.php          # the generic SMTP primitive (attachments, etc.)
-│   │   │   └── EmailServer.php           # wraps PHPMailer — the only class that imports it
-│   │   └── Notification/
-│   │       ├── INotificationSender.php   # send(to, title, message)
-│   │       ├── EmailNotifier.php
-│   │       └── SmsNotifier.php           # notify.lk
-│   └── test/                              # Vwork\Domain\Infrastructure\Test\
-└── modules/
-    ├── src/                               # Vwork\Domain\Modules\
-    │   ├── IFacade.php                    # empty marker — every module's public contract
-    │   ├── SystemConfig/
-    │   ├── Staff/
-    │   ├── CustomerVehicle/
-    │   ├── Identity/                      # requires: SystemConfig
-    │   ├── Appointment/                   # requires: CustomerVehicle, Staff
-    │   ├── Job/                           # requires: Staff, Billing, CustomerVehicle, Inventory
-    │   ├── Billing/
-    │   ├── Inventory/                     # requires: Supplier
-    │   ├── Supplier/                      # requires: Staff
-    │   └── Notification/                  # publishes to Valkey — delivery happens in worker/
-    └── test/                              # Vwork\Domain\Modules\Test\
-```
-
-Each module still follows the same internal shape it always did — a facade, an entity, an `Entity/`folder, and an `Internal/` folder nothing outside the module ever reaches into:
-
-```text
-domain/modules/Job/src/
-├── IJobFacade.php
-├── JobFacade.php
-├── Entity/
-│   ├── Job.php
-│   └── JobParts.php
-└── Internal/
-    ├── WorkflowService.php
-    ├── StateService.php
-    └── JobRepository.php
-```
-
-The dependency table above (`Identity` needs `SystemConfig`, `Appointment` needs `CustomerVehicle` and `Staff`, ...) is a discipline enforced by PHPat and code review, not by Composer — every module lives under the same `Vwork\Domain\Modules\` namespace root in the same single Composer package, so Composer itself can't refuse to install one module without another.
-
-A test proving "a module's facade actually works against real Postgres and real Valkey" is inherently testing the seam between `Infrastructure/` and `Modules/` — that's the `domain/test/` case from the open question above, not something either `infrastructure/test/` or `modules/test/` alone can honestly claim. Anything faked instead (a module's facade against a fake `IDatabase`, `Database`'s reconnect logic against a fake `\PDO`) is a **Unit** test that only needs its own root, and lives in `infrastructure/test/` or `modules/test/` respectively, right alongside the class it's testing, never touching real Postgres or Valkey.
-
-## `web/` — the WebApp
-
-The only process that speaks HTTP. Everything here exists to turn a `Request` into a `Response`: match a route, run it through middleware, call a facade, shape the result.
-
-```text
-web/
-├── src/
-│   ├── IApp.php
-│   ├── IAppBuilder.php
-│   ├── WebApp.php
-│   ├── AppBuilder.php
-│   ├── Registry/
-│   │   ├── IHttpRegistry.php          # getController() / getMiddleware()
-│   │   ├── IServiceRegistry.php       # extends IDomainRegistry + IHttpRegistry
-│   │   └── AppServiceRegistry.php
-│   ├── Http/                          # Http related classes / enums
-│   │   ├── Request.php
-│   │   ├── Response.php
-│   │   ├── HttpMethods.php
-|   |   └── ...
-│   ├── Controllers/                   # concrete Controller implementations
-│   │   ├── IController.php
-│   │   ├── Controller.php
-|   |   └── ...
-│   ├── Middleware/                    # IMiddleware, Auth/Rbac/Validation
-│   │   ├── IMiddleware.php
-|   |   └── ...
-│   ├── Router/                        # IRouter, Router, RouteMatch, RouteContext
-│   │   ├── IRouter.php
-│   │   ├── Router.php
-│   │   ├── RouteMatch.php
-|   |   └── RouteContext.php
-│   ├── Pipeline/                      # Request handling pipeline (CoR)
-│   │   ├── IPipelineHandler.php
-│   │   ├── ControllerHandler.php
-|   |   └── MiddlewareHandler.php
-│   └── Utils/
-│       ├── View.php
-│       └── Csrf.php
-├── resources/                         # not PHP source — sibling to src/, not inside it
-│   ├── views/
-│   ├── scss/
-│   └── ts/
-├── config/
-│   ├── Caddyfile.dev
-│   ├── Caddyfile.prod
-│   ├── routes/                        # staff.php, customer.php
-│   └── services/                      # infrastructure, facades, controllers, middleware
-├── public/                            # web-server document root
-│   ├── index.php                      # worker-mode entrypoint
-│   └── index.dev.php                  # classic, single-call entrypoint
-├── test/                              # Vwork\Web\Test\ (autoload-dev) — PHPUnit only
-│   ├── Unit/                          # Router, Pipeline, AppServiceRegistry — everything faked
-│   ├── Integration/                   # real Postgres/Valkey, a raw HTTP client — no browser involved
-│   └── e2e/                           # not PHP, not namespaced — playwright tests
-│       └── package.json                   # Playwright's own deps — separate from the frontend build's package.json
-├── package.json                       # Bun — TS/SCSS build only
-└── Dockerfile
-```
-
-A controller's job is small and specific: read the request, call a facade with named arguments, hand the result to `view()`, `payload()`, or `sseEvent()`. It never touches Postgres, never touches Valkey directly.
-
-## `worker/` — the QueueWorker
-
-No HTTP anywhere in this process. It boots, subscribes to every topic it has a handler for, and blocks — reacting to messages as they arrive until the container stops it.
-
-```text
-worker/
-├── src/
-│   ├── IWorkerServiceRegistry.php     # extends IDomainRegistry, + getEventHandler()
-│   ├── WorkerServiceRegistry.php
-│   ├── QueueWorker.php
-│   └── EventHandlers/
-│       ├── IEventHandler.php
-│       ├── JobCompletedNotificationHandler.php
-│       └── InventoryLowStockNotificationHandler.php
-├── config/
-│   └── services/
-│   │   ├── infrastructure.php         # the full set — this is what actually delivers notifications
-│   │   ├── facades.php
-│   │   └── eventHandlers.php          # keyed by PubSubTopics
-│   └── php-cli.ini                       # opache config
-├── test/                              # Vwork\Worker\Test\ (autoload-dev)
-│   ├── Unit/
-│   └── Integration/                   # real Valkey — does QueueWorker actually react
-├── Dockerfile                         # console/ shares this image
-└── main.php                           # `php worker/queue-worker`
-```
-
-No third tier here — there's no browser, no rendered UI, nothing an `e2e/` folder would test that `Integration/` doesn't already cover as the deepest possible check on `Worker` alone.
-
-## `console/` — one-off tooling
-
-Migrations, creating a staff account by hand, sending a one-off reminder — anything a person runs deliberately rather than something a request or an event triggers. It has its own, complete set of bindings; it never assumes `worker/`'s bindings happen to cover what it needs.
-
-```text
-console/
-├── src/
-│   └── Commands/
-│       ├── MigrateCommand.php            # talks to IDatabase directly — no facade, no schema yet
-│       ├── StaffCreateCommand.php
-│       └── NotifySendReminderCommand.php # calls the facade SYNCHRONOUSLY — nobody's waiting on a CLI command
-├── config/
-│   ├── services/
-│   │   ├── infrastructure.php
-│   │   └── facades.php
-│   └── php-cli.ini                       # opache config
-├── test/                                 # Vwork\Console\Test\ (autoload-dev)
-│   ├── Unit/
-│   └── Integration/                      # real Postgres — does MigrateCommand produce the right schema
-└── main.php                              # `php console/console migrate`
-```
-
-It has no `Dockerfile` of its own — it's built into `worker/`'s image and run with `docker compose exec worker php console/console <command>`.
-
-## `tests/` (root) and `migrations/` — the things nobody owns
-
-Everything in this folder passes one test: no single deliverable — not `domain/`, not `web/`, not `worker/`, not `console/` — could honestly claim it on its own.
-
-```text
-tests/    # not autoloaded — root-level tooling only, no namespace of its own
-├── Load/            # k6 / Gatling — whole-stack performance under realistic concurrent traffic
-├── Architecture/    # phpat / Deptrac — structural rules, checked across the whole codebase at once
-└── Security/        # composer audit, secret scanning, dependency CVEs — whole-repo tooling,
-                     # not "does AuthMiddleware work" (that's web/test/Integration/'s job)
-
-migrations/  # Ordered SQL. No single module owns the whole schema, so this can't live inside domain/.
-```
-
-## Getting started
-
-```bash
-git clone <repo-url> vwork && cd vwork
-composer install
-docker compose up -d                 # Postgres, Valkey, web, worker
-docker compose exec worker php console/main.php migrate
-```
-
-| App | URL |
-| --- | --- |
-| Customer Web App | `http://localhost/customer` |
-| Staff Web App | `http://localhost/staff` |
-
-Admin isn't a separate app — it's a role, same as Technician or Supervisor, gated per-route.
-
-## Checking your work
-
-```bash
-vendor/bin/phpunit --testsuite=unit           # every folder's own Unit/
-vendor/bin/phpunit --testsuite=integration     # domain/, web/, worker/, console/'s own Integration/
-vendor/bin/phpunit --testsuite=e2e-app         # web/e2e — Playwright, click to database, App alone
-vendor/bin/phpat analyse                       # root tests/Architecture — structural rules
-composer audit                                  # root tests/Security — dependency CVEs
-vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
-vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
-```
-
-## Adding a new endpoint
-
-1. Add the route in `web/config/routes/`.
-2. Add the method to the module's facade interface, implement it, write a unit + integration test.
-3. Add a controller action that calls the facade with named arguments.
-4. Run Deptrac and PHPStan before you open a PR.
-
-Routes live in `web/config/routes/*.php`, one file per surface (`staff.php`, `customer.php`), each returning a plain array — method, path, the controller action to call, the middleware chain, and which roles are allowed through:
+**3. Route.** A route file returns a list of route configs:
 
 ```php
 <?php
- 
+// web/config/routes/staff.php
+
 declare(strict_types=1);
- 
-use Vwork\Shared\Http\HttpMethods;
+
 use Vwork\Domain\Modules\Identity\UserRoles;
 use Vwork\Web\Controllers\JobController;
+use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Middleware\AuthMiddleware;
+use Vwork\Web\Middleware\CsrfMiddleware;
 use Vwork\Web\Middleware\RbacMiddleware;
- 
+
 return [
     [
-        'method' => HttpMethods::POST,
-        'path' => '/staff/jobs/{id}/complete',
-        'controller' => [
-            'class' => JobController::class,
-            'method' => 'complete',
-        ]
-        'middleware' => [AuthMiddleware::class, RbacMiddleware::class],
-        'context' => [
-            'roles' => [UserRoles::Technician, UserRoles::Supervisor],
-            /* plus other route context information (cookie info, session info) */
-        ]
+        'method'     => HttpMethods::POST,
+        'path'       => '/staff/jobs/{id}/ready-for-qa',
+        'controller' => ['class' => JobController::class, 'method' => 'markReadyForQa'],
+        'middleware' => [AuthMiddleware::class, RbacMiddleware::class, CsrfMiddleware::class],
+        'context'    => ['roles' => [UserRoles::Technician]],
     ],
 ];
 ```
 
-`AppBuilder` reads every route file once, at bootstrap, and hands each one to `PipelineFactory` — which resolves `JobController`/`AuthMiddleware`/`RbacMiddleware` from the registry exactly once each, wraps them into one nested chain, and stores that chain directly at the route's leaf node in the router's trie. A request matching this path never re-resolves anything — it walks straight into the pre-built chain.
+| Key | Meaning |
+| --- | --- |
+| `path` | `{name}` segments arrive in the attributes as strings: `$attributes['id']`. |
+| `middleware` | Runs **in list order**; the first entry is the outermost. Put authentication first, since later middleware reads what it writes. |
+| `context` | Becomes the route's `RouteContext`: allowed roles, validation rules. Middleware reads it; controllers don't. |
 
-## Wiring a service
+**4. Bindings.** If the controller, a middleware or the facade is new, register it. See each service's section below. A new action on an existing controller needs no binding change.
 
-Every process builds its own registry from a stack of `config/services/*.php` files — plain scripts, each `return`ing a `class-string => closure` map. Nothing is autowired: if a binding is missing, `getFacade()`/`getInfrastructure()`/etc. throws a `VwrkError` naming exactly what's missing, right where it was asked for.
+**Then run the checks:**
 
-These files have no namespace of their own — they're `require`'d as configuration, not autoloaded as classes — but they freely `use` real classes from anywhere in `domain/`, `shared/`, or their own process.
-
-**Infrastructure:**
-
-```php
-<?php
- 
-declare(strict_types=1);
- 
-use Vwork\Domain\Infrastructure\Database\IDatabase;
-use Vwork\Domain\Infrastructure\Database\Database;
- 
-return [
-    IDatabase::class => fn() => new Database(
-        dsn: getenv('DB_DSN'),
-        user: getenv('DB_USER'),
-        pass: getenv('DB_PASSWORD'),
-    ),
-];
+```bash
+vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php
+vendor/bin/phpstan analyse --configuration=.tools/phpat.neon
 ```
 
-**Facade** — always constructed with whatever it needs, resolved back through the same registry it's being registered into:
+---
+
+## Adding a service
+
+Every service follows the same three steps:
+
+1. Write an interface.
+2. Write a `final` implementation.
+3. Bind it in the right `config/` file.
+
+Only the location and the key change between types.
+
+| Service | Interface lives in | Implementation lives in | Bound in | Key |
+| --- | --- | --- | --- | --- |
+| Facade | `domain/modules/src/<Module>/I<Module>Facade.php` | `domain/modules/src/<Module>/<Module>Facade.php` | `<process>/config/services/modules.php` | interface |
+| Controller | — (extends `Controller`) | `web/src/Controllers/` | `web/config/services/controllers.php` | class |
+| Middleware | — (implements `IMiddleware`) | `web/src/Middleware/` | `web/config/services/middleware.php` | class |
+| Infrastructure | `domain/infrastructure/src/<Area>/I<Thing>.php` | `domain/infrastructure/src/<Area>/` | `<process>/config/services/infrastructure.php` | interface |
+| EventHandler | — (implements `IEventHandler`) | `worker/src/EventHandlers/` | `worker/config/services/eventHandlers.php` | `PubSubTopics` value |
+
+### Facade (module)
+
+A module is a folder under `domain/modules/src/`. Its facade is the **only** thing anything outside the module may use.
+
+```text
+domain/modules/src/Job/
+├── IJobFacade.php        # public contract — extends IFacade
+├── JobFacade.php         # final implementation — only config references it
+├── Entity/               # readonly value objects returned by the facade
+│   ├── Job.php
+│   └── JobStatus.php
+└── Internal/             # private to the module: repositories, services
+    └── JobRepository.php
+```
+
+**Interface:**
 
 ```php
 <?php
- 
+
 declare(strict_types=1);
- 
+
+namespace Vwork\Domain\Modules\Job;
+
+use Vwork\Domain\Modules\IFacade;
+use Vwork\Domain\Modules\Job\Entity\Job;
+use Vwork\Domain\Modules\ModuleException;
+
+interface IJobFacade extends IFacade
+{
+    /**
+     * @throws ModuleException if the job doesn't exist or isn't assigned to this technician
+     */
+    public function markReadyForQa(int $jobId, int $technicianId): Job;
+}
+```
+
+**Entity** (readonly, no behaviour that reaches `Internal/`):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Vwork\Domain\Modules\Job\Entity;
+
+final readonly class Job
+{
+    public function __construct(
+        public int $id,
+        public int $technicianId,
+        public JobStatus $status,
+    ) {
+    }
+}
+```
+
+**Implementation.** Dependencies arrive through the constructor, as interfaces:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Vwork\Domain\Modules\Job;
+
+use Override;
+use Vwork\Domain\Infrastructure\Database\IDatabase;
+use Vwork\Domain\Infrastructure\PubSub\IPubSub;
+use Vwork\Domain\Infrastructure\PubSub\PubSubTopics;
+use Vwork\Domain\Modules\Job\Entity\Job;
+use Vwork\Domain\Modules\Job\Entity\JobStatus;
+use Vwork\Domain\Modules\Job\Internal\JobRepository;
+use Vwork\Domain\Modules\ModuleException;
+
+final class JobFacade implements IJobFacade
+{
+    private readonly JobRepository $jobs;
+
+    public function __construct(
+        IDatabase $db,
+        private readonly IPubSub $pubsub,
+    ) {
+        $this->jobs = new JobRepository($db);
+    }
+
+    #[Override]
+    public function markReadyForQa(int $jobId, int $technicianId): Job
+    {
+        $job = $this->jobs->find($jobId)
+            ?? throw new ModuleException("Job {$jobId} not found", self::class);
+
+        if ($job->technicianId !== $technicianId) {
+            throw new ModuleException("Job {$jobId} is not assigned to technician {$technicianId}", self::class);
+        }
+
+        $updated = $this->jobs->setStatus($jobId, JobStatus::QA);
+
+        $this->pubsub->publish(
+            PubSubTopics::JobUpdated,
+            json_encode(['jobId' => $jobId, 'status' => $updated->status->value], JSON_THROW_ON_ERROR),
+        );
+
+        return $updated;
+    }
+}
+```
+
+`Internal/JobRepository` holds the SQL, uses `IDatabase::query()` for reads and `IDatabase::execute()` for anything that must be atomic, and maps rows to entities.
+
+**Binding**, in every process that uses the facade:
+
+```php
+<?php
+// web/config/services/modules.php  (and worker/…, console/… where needed)
+
+declare(strict_types=1);
+
 use Vwork\Domain\IDomainRegistry;
 use Vwork\Domain\Infrastructure\Database\IDatabase;
+use Vwork\Domain\Infrastructure\PubSub\IPubSub;
 use Vwork\Domain\Modules\Job\IJobFacade;
 use Vwork\Domain\Modules\Job\JobFacade;
- 
+
 return [
-    IJobFacade::class => fn(IDomainRegistry $registry) => new JobFacade(
-        db: $registry->getInfrastructure(IDatabase::class),
-        staff: $registry->getFacade(IStaffFacade::class),
+    IJobFacade::class => fn (IDomainRegistry $r) => new JobFacade(
+        db: $r->getInfrastructure(IDatabase::class),
+        pubsub: $r->getInfrastructure(IPubSub::class),
     ),
 ];
 ```
 
-**Controller** (`web/`-only — needs `IHttpRegistry`'s facades wired up alongside `IDomainRegistry`'s):
+**For a new module**, also add it to `$moduleDeps` in `test/Architecture/ModuleRules.php` with the modules it is allowed to use. A module can only use another module's facade interface, and only if it is listed there. It receives that facade through its constructor exactly like infrastructure: `$r->getFacade(IStaffFacade::class)`.
+
+**Rules PHPat checks for modules:**
+- `I<Name>Facade` extends `IFacade`, and `<Name>Facade` implements it.
+- No namespaced code references `<Name>Facade`; only config does.
+- `Entity/` and `Internal/` never use the module's own facade.
+- Entities are `readonly` and don't depend on `Internal/`.
+- Nothing outside the module touches its `Internal/`.
+
+### Controller
+
+A controller is thin. It reads input, calls facades, and turns the result (or an expected failure) into a `Response`. It never touches the database, cache or pub/sub directly.
 
 ```php
 <?php
- 
+
 declare(strict_types=1);
- 
-use Vwork\Web\IServiceRegistry;
+
+namespace Vwork\Web\Controllers;
+
+use Vwork\Domain\Modules\Job\IJobFacade;
+use Vwork\Domain\Modules\ModuleException;
+use Vwork\Shared\Types\Cast;
+use Vwork\Web\Http\HttpStatus;
+use Vwork\Web\Http\Request;
+use Vwork\Web\Http\Response;
+
+final class JobController extends Controller
+{
+    public function __construct(
+        private readonly IJobFacade $jobs,
+    ) {
+    }
+
+    /**
+     * POST /staff/jobs/{id}/ready-for-qa
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public function markReadyForQa(Request $request, array $attributes): Response
+    {
+        $userId = $attributes['userId'];   // written by AuthMiddleware
+        assert(is_int($userId));
+
+        try {
+            $job = $this->jobs->markReadyForQa(
+                jobId: (int) Cast::string($attributes['id']),   // path param
+                technicianId: $userId,
+            );
+        } catch (ModuleException $e) {
+            return Response::error(HttpStatus::Conflict, $e->getMessage());
+        }
+
+        return $this->view('staff/jobs/show', ['job' => $job]);
+    }
+}
+```
+
+**Responses.** `Controller` provides `view()` (render a template), `payload()` (data), `sse()` (a server-sent-events message) and `file()` (a download). `Response`'s named constructors cover the rest: `redirect`, `noContent`, `error`, `html`, `text`, `stream`.
+
+**Binding:**
+
+```php
+<?php
+// web/config/services/controllers.php
+
+declare(strict_types=1);
+
+use Vwork\Domain\IDomainRegistry;
 use Vwork\Domain\Modules\Job\IJobFacade;
 use Vwork\Web\Controllers\JobController;
- 
+
 return [
-    JobController::class => fn(IServiceRegistry $registry) => new JobController(
-        jobs: $registry->getFacade(IJobFacade::class),
+    JobController::class => fn (IDomainRegistry $r) => new JobController(
+        jobs: $r->getFacade(IJobFacade::class),
     ),
 ];
 ```
 
-**Middleware** (`web/`-only):
+**Rules:**
+- The class is `final`, in `Vwork\Web\Controllers\`, and extends `Controller`.
+- It may use `Http/`, `Utils/` and module facade interfaces — never `Middleware/`, `Pipeline/`, `Router/` or the composition root.
+- Only config references it.
+- The controller is built once and serves every request, so keep it stateless.
+
+### Middleware
+
+Middleware sits between the router and the controller. Each one either **short-circuits** with its own `Response` or **passes on** by calling `$next`, optionally adding attributes for the handlers after it.
 
 ```php
 <?php
- 
+
 declare(strict_types=1);
- 
-use Vwork\Web\IServiceRegistry;
+
+namespace Vwork\Web\Middleware;
+
+use Override;
+use Vwork\Domain\Modules\Identity\IIdentityFacade;
+use Vwork\Web\Http\HttpCookies;
+use Vwork\Web\Http\Request;
+use Vwork\Web\Http\Response;
+use Vwork\Web\Pipeline\IPipelineHandler;
+use Vwork\Web\Router\RouteContext;
+
+final class AuthMiddleware implements IMiddleware
+{
+    public function __construct(
+        private readonly IIdentityFacade $identity,
+    ) {
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Override]
+    public function handle(Request $request, array $attributes, IPipelineHandler $next, RouteContext $context): Response
+    {
+        $token = $request->cookies[HttpCookies::SessionToken->value] ?? null;
+        $session = $token === null ? null : $this->identity->findSession($token);
+
+        if ($session === null) {
+            return Response::redirect('/login');          // short-circuit
+        }
+
+        return $next->handle($request, [                  // pass on, with more attributes
+            ...$attributes,
+            'userId' => $session->userId,
+            'role'   => $session->role,
+        ]);
+    }
+}
+```
+
+**Binding:**
+
+```php
+<?php
+// web/config/services/middleware.php
+
+declare(strict_types=1);
+
+use Vwork\Domain\IDomainRegistry;
 use Vwork\Domain\Modules\Identity\IIdentityFacade;
 use Vwork\Web\Middleware\AuthMiddleware;
- 
+
 return [
-    AuthMiddleware::class => fn(IServiceRegistry $registry) => new AuthMiddleware(
-        identity: $registry->getFacade(IIdentityFacade::class),
+    AuthMiddleware::class => fn (IDomainRegistry $r) => new AuthMiddleware(
+        identity: $r->getFacade(IIdentityFacade::class),
     ),
 ];
 ```
 
-**EventHandler** (`worker/`-only — keyed by `PubSubTopics`, not by class-string, since `IWorkerServiceRegistry::getEventHandler()` looks handlers up by topic):
+Then add it to the `middleware` list of each route that needs it. **Order matters** — see [Adding an endpoint](#adding-an-endpoint).
+
+**Rules:**
+- The class is `final`, in `Vwork\Web\Middleware\`, and implements `IMiddleware`.
+- Only config references it.
+- **Attributes are the only way to hand data to later handlers.** The middleware instance is shared across all requests, so never store per-request state on it.
+- Route-specific settings (roles, validation rules) come from `$context`; don't hard-code them in the middleware.
+
+### Infrastructure
+
+Infrastructure is anything that talks to the outside world. Modules see only the interface.
+
+**1. Interface.** Put it in its own area folder and extend `IInfrastructure`. If the area already has an interface (`ICache`, `IEmailServer`, …), implement that instead.
 
 ```php
 <?php
- 
+
 declare(strict_types=1);
- 
-use Vwork\Domain\IDomainRegistry;
-use Vwork\Domain\Infrastructure\PubSub\PubSubTopics;
-use Vwork\Domain\Modules\Notification\INotificationFacade;
-use Vwork\Worker\EventHandlers\JobCompletedNotificationHandler;
- 
+
+namespace Vwork\Domain\Infrastructure\VinDecoder;
+
+use Vwork\Domain\Infrastructure\IInfrastructure;
+use Vwork\Domain\Infrastructure\InfrastructureException;
+
+interface IVinDecoder extends IInfrastructure
+{
+    /**
+     * @return array<string, mixed> decoded fields; empty if the source has no match
+     * @throws InfrastructureException if the source can't be reached or answers badly
+     */
+    public function decode(string $vin): array;
+}
+```
+
+**2. Implementation.** Write a `final` class. Configuration comes in through the constructor, and `connect()` opens or reopens whatever connection it holds.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Vwork\Domain\Infrastructure\VinDecoder;
+
+use JsonException;
+use Override;
+use Vwork\Domain\Infrastructure\InfrastructureException;
+
+final class HttpVinDecoder implements IVinDecoder
+{
+    public function __construct(
+        private readonly string $baseUrl,
+    ) {
+    }
+
+    #[Override]
+    public function connect(): void
+    {
+        // Stateless HTTP: nothing to open. Stateful clients (PDO, Redis)
+        // open their connection here, and callers use it to reconnect.
+    }
+
+    #[Override]
+    public function decode(string $vin): array
+    {
+        $body = file_get_contents("{$this->baseUrl}/{$vin}");
+        if ($body === false) {
+            throw new InfrastructureException("VIN lookup failed for {$vin}", self::class);
+        }
+
+        try {
+            $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new InfrastructureException("VIN lookup returned invalid JSON for {$vin}", self::class, $e);
+        }
+
+        if (!is_array($data)) {
+            throw new InfrastructureException("VIN lookup returned an unexpected shape for {$vin}", self::class);
+        }
+
+        /** @var array<string, mixed> $data */
+        return $data;
+    }
+}
+```
+
+**3. Binding**, in every process that needs it. Read configuration from the environment with `Cast` so a missing variable fails loudly:
+
+```php
+<?php
+// web/config/services/infrastructure.php  (and worker/…, console/… where needed)
+
+declare(strict_types=1);
+
+use Vwork\Domain\Infrastructure\VinDecoder\HttpVinDecoder;
+use Vwork\Domain\Infrastructure\VinDecoder\IVinDecoder;
+use Vwork\Shared\Types\Cast;
+
 return [
-    PubSubTopics::JobCompleted->value => fn(IDomainRegistry $registry) => new JobCompletedNotificationHandler(
-        notifier: $registry->getFacade(INotificationFacade::class),
+    IVinDecoder::class => fn () => new HttpVinDecoder(
+        baseUrl: Cast::string(getenv('VIN_DECODER_URL')),
     ),
 ];
 ```
 
-Every one of these closures is lazy — none of them run until something actually asks the registry for that exact class or topic. Register a facade nobody ever calls, and it's never built at all.
+Add any new environment variable to the relevant services in `.docker/docker-compose.yml`. If it has a dev default, add that to `.docker/.env`.
 
-## Still open
+**Rules:**
+- **Error or exception:**
+  - `InfrastructureError`: the adapter can't work at all — unreachable after retries, bad credentials, bad configuration.
+  - `InfrastructureException`: a single operation failed at runtime and the caller may recover.
+  - Both take `self::class` as the second argument.
+- **Shared plumbing goes in `Internal/`.** Code shared by several adapters (as `Internal\Valkey` is for `ValkeyCache` and `ValkeyPubSub`) goes there. PHPat forbids anything outside infrastructure from using it.
+- **Consumers depend on the interface only.** Only config names the concrete class.
+- **Infrastructure depends on nothing but `shared/`.** It has no module knowledge.
 
-The architecture is settled; a few pieces are still just plans, not code:
+### EventHandler
 
-* Route `{param}` extraction
-* Reconnect logic for the database and cache clients
-* Graceful shutdown for `QueueWorker::run()`
-* The full command list for `console/`
+An event handler is the worker's equivalent of a controller. It receives one pub/sub message, then calls module facades.
 
-## References
+**1. Topic.** Use an existing `PubSubTopics` case, or add one:
 
-* Database Schema: `docs/ER.drawio`
-* Use Case Diagrams: `docs/UseCases.drawio`
-* Activiy Diagrams: `docs/Activities.drawio`
-* State Diagrams: `docs/StateMachines.drawio`
-* Architecture: `docs/adr/`.
+```php
+// domain/infrastructure/src/PubSub/PubSubTopics.php
+case JobUpdated = 'job.updated';
+```
+
+**2. Publisher.** The facade that owns the change publishes it (see `JobFacade` above). Keep the payload to IDs and the new state; the handler reads anything else through a facade.
+
+**3. Handler:**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Vwork\Worker\EventHandlers;
+
+use JsonException;
+use Override;
+use Vwork\Domain\Infrastructure\Logging\ILogger;
+use Vwork\Domain\Modules\ModuleException;
+use Vwork\Domain\Modules\Notification\INotificationFacade;
+
+final class JobUpdatedHandler implements IEventHandler
+{
+    public function __construct(
+        private readonly INotificationFacade $notifications,
+        private readonly ILogger $logger,
+    ) {
+    }
+
+    #[Override]
+    public function handle(string $event): void
+    {
+        try {
+            $payload = json_decode($event, true, flags: JSON_THROW_ON_ERROR);
+            if (!is_array($payload) || !is_int($payload['jobId'] ?? null)) {
+                $this->logger->warning('Malformed job.updated event', ['event' => $event]);
+                return;
+            }
+
+            $this->notifications->notifyJobStatus(jobId: $payload['jobId']);
+        } catch (JsonException | ModuleException $e) {
+            $this->logger->error($e->getMessage(), ['event' => $event]);
+        }
+    }
+}
+```
+
+**4. Binding**, keyed by the topic's value:
+
+```php
+<?php
+// worker/config/services/eventHandlers.php
+
+declare(strict_types=1);
+
+use Vwork\Domain\IDomainRegistry;
+use Vwork\Domain\Infrastructure\Logging\ILogger;
+use Vwork\Domain\Infrastructure\PubSub\PubSubTopics;
+use Vwork\Domain\Modules\Notification\INotificationFacade;
+use Vwork\Worker\EventHandlers\JobUpdatedHandler;
+
+return [
+    PubSubTopics::JobUpdated->value => fn (IDomainRegistry $r) => new JobUpdatedHandler(
+        notifications: $r->getFacade(INotificationFacade::class),
+        logger: $r->getInfrastructure(ILogger::class),
+    ),
+];
+```
+
+The facades and infrastructure the handler uses must also be bound in `worker/config/services/modules.php` and `infrastructure.php`.
+
+**Rules:**
+- **Handle expected failures inside `handle()`.** The handler runs inside `IPubSub::subscribe()`, which blocks, so an uncaught throwable ends the subscription and stops the worker. Catch expected failures (`VworkException`, bad payloads) and log them.
+- **Let `VworkError` propagate.** A crashed worker is the loud signal that code or configuration is broken.
+- **Each topic has one handler.** A topic with no registered handler is simply not subscribed to.
+- **No HTTP here.** Handlers never reference `web/`.
+
+---
+
+## Repository layout
+
+```text
+.
+├── composer.json              # one Composer project; PSR-4 root per folder
+├── package.json               # Bun workspace root (workspaces: ["web"])
+├── .docker/                   # compose stacks (prod / test / dev) + dev-only .env
+├── .devcontainer/             # attaches VS Code to the `test` service
+├── .githooks/                 # pre-commit (PSR-12), pre-push (static analysis)
+├── .tools/                    # deptrac, phpstan, phpat, phpunit, php-cs-fixer configs
+├── .vscode/                   # tasks: lint, test, analyse, docker, assets
+├── docs/                      # design diagrams (draw.io)
+│
+├── shared/                    # Vwork\Shared\ — Registry, StaticTrie, Cast, VworkError/Exception
+│   ├── src/
+│   └── test/
+│
+├── domain/
+│   ├── src/                   # Vwork\Domain\ — IDomainRegistry, DomainRegistry
+│   ├── test/                  # integration: facades against real Postgres + Valkey
+│   ├── infrastructure/
+│   │   ├── src/               # Vwork\Domain\Infrastructure\ — one folder per area
+│   │   │   ├── Cache/  Database/  Email/  Logger/  Notification/  PubSub/
+│   │   │   └── Internal/      # shared adapter plumbing, private to infrastructure
+│   │   └── test/
+│   └── modules/
+│       ├── src/               # Vwork\Domain\Modules\ — IFacade + one folder per module
+│       └── test/
+│
+├── web/                       # Vwork\Web\
+│   ├── Dockerfile             # stages: bun, base, dev, assets, test, prod
+│   ├── dev.start.sh           # dev: Bun asset watcher + frankenphp --watch
+│   ├── config/
+│   │   ├── Caddyfile.dev / Caddyfile.prod
+│   │   ├── routes/            # route configs
+│   │   └── services/          # infrastructure, modules, middleware, controllers
+│   ├── public/                # document root; index.php
+│   ├── resources/             # ts/, scss/, build.config.ts → public/assets/
+│   ├── src/
+│   │   ├── (root)             # composition root: AppBuilder, AppServiceRegistry, …
+│   │   ├── Http/              # Request, Response, HttpMessage, UploadedFile, enums
+│   │   ├── Utils/             # Csrf, View
+│   │   ├── Controllers/
+│   │   ├── Middleware/
+│   │   ├── Pipeline/
+│   │   └── Router/
+│   └── test/                  # Unit/, Integration/, e2e/ (Playwright)
+│
+├── worker/                    # Vwork\Worker\
+│   ├── Dockerfile             # console/ runs from this image too
+│   ├── main.php
+│   ├── config/services/       # infrastructure, modules, eventHandlers
+│   ├── src/                   # Worker, WorkerServiceRegistry, EventHandlers/
+│   └── test/
+│
+├── console/                   # Vwork\Console\
+│   ├── main.php
+│   ├── config/services/       # infrastructure, modules, commands
+│   ├── src/
+│   └── test/
+│
+└── test/
+    └── Architecture/          # PHPat rules
+```
+
+---
+
+## Development
+
+### Stack
+
+| | |
+| --- | --- |
+| PHP | 8.5 — FrankenPHP 1.12.7 image (`web`), `php:8.5.9-cli` (`worker`) |
+| Extensions | `pdo_pgsql`, `redis` 6.3.0, `opcache`, `gd`, `iconv`; Xdebug in dev only |
+| Database | PostgreSQL 16.14 |
+| Cache / pub-sub | Valkey 9.1.1 |
+| Frontend | Bun 1.3, TypeScript 5.6, Sass |
+| Testing | PHPUnit 13.3, Playwright 1.62.1 |
+| Static analysis | PHPStan 2.2 (level `max`), Deptrac 4.7, PHPat 0.12.4, PHP-CS-Fixer 3.95 (PSR-12) |
+
+### Devcontainer
+
+Open the repo in VS Code and choose **Reopen in Container**.
+
+- **Stack:** it starts `.docker/docker-compose.dev.yml`.
+- **Attached service:** VS Code attaches to the `test` service (PHP 8.5, Composer, Bun and Playwright, at `/app`).
+- **Git hooks:** enabled automatically.
+- **Ports:** `web:80` and Xdebug's 9003 are forwarded.
+
+### Running the stack
+
+The compose files are in `.docker/`, so pass them with `-f`:
+
+```bash
+docker compose -f .docker/docker-compose.dev.yml up      # web, worker, db, cache, test
+docker compose -f .docker/docker-compose.dev.yml down
+
+# console commands run inside the worker container
+docker compose -f .docker/docker-compose.dev.yml exec worker php console/main.php <command>
+```
+
+The web app is served on <http://localhost>.
+
+| Compose file | Adds |
+| --- | --- |
+| `docker-compose.yml` | Prod stack: `web` (80 / 443), `worker`, `db`, `cache`. `web_net` is public; `data_net` connects web and worker to db and cache. |
+| `docker-compose.test.yml` | The `test` container. It reaches `web` as `web.local` on `test_net`, and db / cache directly on `data_net`. |
+| `docker-compose.dev.yml` | `dev` build targets and source bind mounts. |
+
+### Environment
+
+| Variable | Used by |
+| --- | --- |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | web, worker, integration tests |
+| `CACHE_HOST`, `CACHE_PORT`, `CACHE_PASSWORD` | web, worker, integration tests |
+| `CSRF_KEY` | `Csrf`: HMAC key for CSRF tokens |
+| `VIEW_PATH` | `View`: templates directory, relative to the repo root |
+| `BASE_URL` | Playwright |
+| `SERVER_NAME` | `Caddyfile.prod`. Set it to get automatic Let's Encrypt HTTPS; leave it unset behind a TLS-terminating proxy. |
+
+`.docker/.env` holds **dev-only placeholders** and is committed on purpose. Deploy with real secrets:
+
+```bash
+docker compose -f .docker/docker-compose.yml --env-file /path/to/prod.env up -d --build
+```
+
+### Frontend assets
+
+```bash
+bun install          # from the repo root; one hoisted node_modules/
+bun run build        # → web/public/assets/
+bun run dev          # watch and rebuild
+bun run typecheck
+```
+
+---
+
+## Tests and checks
+
+```bash
+vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit
+vendor/bin/phpunit --configuration=.tools/phpunit.xml.dist --testsuite=integration   # needs db + cache
+bun run test:e2e
+
+vendor/bin/phpstan analyse --configuration=.tools/phpstan.neon      # types, level max
+vendor/bin/deptrac analyse --config-file=.tools/deptrac.php         # layers
+vendor/bin/phpstan analyse --configuration=.tools/phpat.neon        # architecture rules
+vendor/bin/php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff
+```
+
+| Suite | Lives in | Touches |
+| --- | --- | --- |
+| Unit | each folder's `test/` (`test/Unit/` in web, worker, console) | nothing external; everything faked |
+| Integration | `domain/test/`, `{web,worker,console}/test/Integration/` | real Postgres / Valkey |
+| End-to-end | `web/test/e2e/` | browser → web → database |
+| Architecture | `test/Architecture/` | static analysis of the whole codebase |
+
+If a unit test needs the database, it's an integration test.
+
+The same commands are VS Code tasks (**Run Task** → `Lint:`, `Test:`, `Static Analyse:`, `Assets:`, `Docker:`, `Check: all`).
+
+**Git hooks** (`git config core.hooksPath .githooks`, done automatically in the devcontainer):
+- **pre-commit:** PSR-12 dry-run on staged PHP files.
+- **pre-push:** PHPStan, Deptrac, PHPat.
+
+---
+
+## Conventions
+
+- `declare(strict_types=1);` in every PHP file.
+- PSR-12 for PHP (4-space indent); 3 spaces for everything else (see `.editorconfig`).
+- `final` on every concrete class unless it is designed to be extended.
+- Depend on interfaces. Concrete facades and infrastructure classes, controllers and middleware are named only in `config/`.
+- Read superglobals only in `Request::fromGlobals()`.
+- Read environment variables only in `config/` files and through `Cast`. The exceptions are `Csrf` and `View`, which read `CSRF_KEY` and `VIEW_PATH` themselves.
+- `VworkError` for broken code or configuration, `VworkException` for expected runtime failures.
+- No per-request state on any service.
