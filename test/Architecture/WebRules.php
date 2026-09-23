@@ -61,8 +61,9 @@ final class WebRules
     private array $peers = [
         'Utils' => ['Http'],
         'Http' => ['Utils'],
-        'Controllers' => ['Middleware'],
-        'Middleware' => ['Controllers'],
+        'Controllers' => ['Middleware', 'Pipeline'],
+        'Middleware' => ['Controllers', 'Pipeline'],
+        'Pipeline' => ['Controllers', 'Middleware']
     ];
 
     #[TestRule]
