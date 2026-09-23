@@ -29,13 +29,16 @@ final class View
      * Renders a view file to a string. $data becomes local variables
      * inside the template.
      *
+     // Be very careful with what you pass as $data, because it's accessible to the view
+     *
      * @param array<string, mixed> $data
      * @throws WebError if the template doesn't exist
      */
     public static function render(string $template, array $data = []): string
     {
-        $path = realpath(self::dir() . '/' . $template . '.php');
-        if ($path === false || !is_file($path) || !is_readable($path)) {
+        $dir = self::dir() . '/';
+        $path = realpath($dir . $template . '.php');
+        if ($path === false || !str_starts_with($path, $dir) || !is_file($path) || !is_readable($path)) {
             throw new WebError("View not found: {$template}");
         }
 
