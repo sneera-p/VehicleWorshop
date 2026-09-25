@@ -38,33 +38,38 @@ final class AppBuilder implements IAppBuilder
     private array $routes = [];
 
     #[Override]
-    public function addInfrastructure(array $config): void
+    public function addInfrastructure(array $config): self
     {
         $this->add(IInfrastructure::class, $config);
+        return $this;
     }
 
     #[Override]
-    public function addFacades(array $config): void
+    public function addFacades(array $config): self
     {
         $this->add(IFacade::class, $config);
+        return $this;
     }
 
     #[Override]
-    public function addControllers(array $config): void
+    public function addControllers(array $config): self
     {
         $this->add(IController::class, $config);
+        return $this;
     }
 
     #[Override]
-    public function addMiddleware(array $config): void
+    public function addMiddleware(array $config): self
     {
         $this->add(IMiddleware::class, $config);
+        return $this;
     }
 
     #[Override]
-    public function addRoutes(array $config): void
+    public function addRoutes(array $config): self
     {
         $this->routes = [...$this->routes, ...$config];
+        return $this;
     }
 
     #[Override]

@@ -37,30 +37,30 @@ interface IAppBuilder
      * @param ServiceConfig $config
      * @throws WebError if a class is already registered
      */
-    public function addInfrastructure(array $config): void;
+    public function addInfrastructure(array $config): static;
 
     /**
      * @param ServiceConfig $config
      * @throws WebError if a class is already registered
      */
-    public function addFacades(array $config): void;
+    public function addFacades(array $config): static;
 
     /**
      * @param ServiceConfig $config
      * @throws WebError if a class is already registered
      */
-    public function addControllers(array $config): void;
+    public function addControllers(array $config): static;
 
     /**
      * @param ServiceConfig $config
      * @throws WebError if a class is already registered
      */
-    public function addMiddleware(array $config): void;
+    public function addMiddleware(array $config): static;
 
     /**
      * @param list<RouteConfig> $config
      */
-    public function addRoutes(array $config): void;
+    public function addRoutes(array $config): static;
 
     /**
      * Builds every pipeline and registers every route. A route that
