@@ -21,7 +21,7 @@ use Vwork\Shared\Exception\VworkError;
  *
  * @author Senira <senirahan@gmail.com>
  */
-final class WebError extends VworkError
+class WebError extends VworkError
 {
     /**
      * @param string $message - error message
