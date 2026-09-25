@@ -35,7 +35,7 @@ services:
          # The base image's own healthcheck curls :2019 (FrankenPHP's admin
          # API), which the Caddyfile disables — always fails. Check the
          # actual web port instead.
-         test: [ "CMD-SHELL", "curl -f http://localhost:80/ || exit 1" ]
+         test: [ "CMD-SHELL", "curl -f http://localhost:80/hello || exit 1" ]
          interval: 5s
          timeout: 5s
          retries: 5

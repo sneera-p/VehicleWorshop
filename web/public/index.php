@@ -1,24 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
+<?php
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="assets/app.css">
-    <script src="assets/app.js"></script>
-</head>
+declare(strict_types=1);
 
-<body>
+require __DIR__ . '/../../vendor/autoload.php';
 
-    <?php
-        $names = ["Tharanga", "Geeth", "Risinu", "Senira"];
-    ?>
+use Vwork\Domain\IDomainRegistry;
+use Vwork\Web\Http\HttpMethods;
+use Vwork\Web\Controllers\IController;
+use Vwork\Web\Middleware\IMiddleware;
+use Vwork\Web\AppBuilder;
 
-    <?php foreach ($names as $name): ?>
-        <h2><?= $name ?></h2>
-    <?php endforeach; ?>
+/**
+ * @var array<class-string, Closure(IDomainRegistry): object>
+ */
+$controllers = require __DIR__ . '/../config/services/controllers.php';
 
-</body>
+/**
+ * @var list<array{
+ *  method: HttpMethods,
+ *  path: string,
+ *  controller: array{
+ *    class: class-string<IController>,
+ *    method: string
+ *  },
+ *  middleware: list<class-string<IMiddleware>>,
+ *  context: array<string, mixed>
+ * }>
+ */
+$routes = require __DIR__ . '/../config/routes/dummy.php';
 
-</html>
+
+$app = new AppBuilder()
+    ->addControllers($controllers)
+    ->addRoutes($routes)
+    ->build();
+
+// FrankenPHP sets FRANKENPHP_WORKER on $_SERVER only when it runs this
+// file as a worker (the `worker` directive in the Caddyfile). Then the
+// app is built once and serves requests in a loop. In classic mode this
+// file runs once per request, so answer that one request and stop.
+if (($_SERVER['FRANKENPHP_WORKER'] ?? false) && function_exists('frankenphp_handle_request')) {
+    while (frankenphp_handle_request($app)) {
+        gc_collect_cycles();
+    }
+} else {
+    $app();
+}
