@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Pipeline;
 
-use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Registry\IHttpRegistry;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Middleware\IMiddleware;
