@@ -27,8 +27,6 @@ final readonly class PipelineFactory
      * So for [Auth, Rbac] the request walks: Auth → Rbac → controller.
      *
      * @param array{
-     *  method: HttpMethods,
-     *  path: string,
      *  controller: array{
      *    class: class-string<IController>,
      *    method: string
