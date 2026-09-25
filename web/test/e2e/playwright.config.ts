@@ -1,4 +1,4 @@
-import { defineConfig } from "playwright/test";
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
    testDir: ".",              // tests are IN this same folder — not "../tests/e2e", not "./tests/e2e"
