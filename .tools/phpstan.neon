@@ -22,5 +22,36 @@ parameters:
    excludePaths:
       - ../web/public/assets/*
       - ../web/node_modules/*
+      # Templates get their variables from extract() inside View::render(),
+      # which PHPStan can't see, so every variable looks undefined.
+      - ../web/resources/views/*
+      - ../web/test/Fixtures/*
+
+   ignoreErrors:
+      # ControllerStub breaks the action rules on purpose, so
+      # ControllerActionTest can check each one is caught.
+      -
+         identifier: vwork.controllerAction
+         path: ../web/test/Stubs/ControllerStub.php
 
    tmpDir: ../.var/cache/phpstan
+
+# Plain PHPStan rules: checks PHPat can't express.
+rules:
+   # Every #[ControllerAction] must be:
+   # public function name(Request $request, array $attr): Response
+   - Vwork\Test\Architecture\ControllerActionRule
+
+# PHPat architecture tests. PHPat only runs classes tagged phpat.test.
+# Its extension.neon is included automatically by phpstan/extension-installer;
+# without that package, add: includes: [../vendor/phpat/phpat/extension.neon]
+services:
+   -
+      class: Vwork\Test\Architecture\InfrastructureRules
+      tags: [phpat.test]
+   -
+      class: Vwork\Test\Architecture\ModuleRules
+      tags: [phpat.test]
+   -
+      class: Vwork\Test\Architecture\WebRules
+      tags: [phpat.test]
