@@ -46,13 +46,13 @@ final class RequestCookieList implements ArrayAccess
     #[Override]
     public function offsetSet(mixed $offset, mixed $value): void
     {
-        throw new WebError('Cannot mutate request list');
+        throw new WebError('Cannot mutate request cookies');
     }
 
     #[Override]
     public function offsetUnset(mixed $offset): void
     {
-        throw new WebError('Cannot mutate request list');
+        throw new WebError('Cannot mutate request cookies');
     }
 
 
