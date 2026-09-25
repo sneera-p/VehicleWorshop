@@ -2,6 +2,10 @@
    "name": "vwork/vehicle-workshop",
    "description": "Workshop management system for small-to-medium scale garages",
    "type": "project",
+   "scripts": {
+      "post-install-cmd": ["@php .tools/phpstan-src.php"],
+      "post-update-cmd": ["@php .tools/phpstan-src.php"]
+   },
    "require": {
       "php": "^8.5"
    },
@@ -26,6 +30,7 @@
    },
    "autoload-dev": {
       "psr-4": {
+         "Vwork\\Test\\": "test/",
          "Vwork\\Shared\\Test\\": "shared/test/",
          "Vwork\\Domain\\Test\\": "domain/test/",
          "Vwork\\Domain\\Infrastructure\\Test\\": "domain/infrastructure/test/",

@@ -15,7 +15,7 @@ use Vwork\Domain\Infrastructure\InfrastructureException;
  * IDatabase for postgreSQL database
  * @author Senira <senirahan@gmail.com>
  */
-final class PostgressDb implements IDatabase
+final class PostgresDb implements IDatabase
 {
     private const int MAX_RETRIES = 5;
     private const int BACKOFF_MIN = 100;

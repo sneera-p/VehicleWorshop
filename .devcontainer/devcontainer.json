@@ -17,6 +17,7 @@
    ],
 
    "postCreateCommand": "git config core.hooksPath .githooks && chmod +x .githooks/*",
+   "postStartCommand": "php .tools/phpstan-src.php",
 
    "forwardPorts": ["web:80", 9003],
    "portsAttributes": {

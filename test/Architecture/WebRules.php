@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Test\Architecture\Web;
+namespace Vwork\Test\Architecture;
 
 use PHPat\Selector\Selector;
 use PHPat\Test\Attributes\TestRule;
