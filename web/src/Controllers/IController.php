@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Vwork\Web\Controllers;
 
 /**
- * Common interface for all Http Controllers
+ * Marks a class as a controller.
  *
- * This exists to have a base type for all controllers
+ * It has no methods. It only lets the registry and the pipeline say
+ * "this must be a controller" in their types.
  *
  * @author Senira <senirahan@gmail.com>
  */
