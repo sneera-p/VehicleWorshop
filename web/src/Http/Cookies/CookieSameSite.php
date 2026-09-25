@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Web\Http;
+namespace Vwork\Web\Http\Cookies;
 
 /**
  * Controls whether the browser attaches a cookie to cross-site requests —

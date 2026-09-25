@@ -7,6 +7,11 @@ namespace Vwork\Web\Http;
 use Closure;
 use Override;
 use Vwork\Web\WebError;
+use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\HttpHeaderList;
+use Vwork\Web\Http\Cookies\HttpCookies;
+use Vwork\Web\Http\Cookies\ResponseCookieList;
+use Vwork\Web\Http\Cookies\CookieSameSite;
 
 /**
  * What goes out.
@@ -19,61 +24,19 @@ use Vwork\Web\WebError;
  *
  * @author Senira <senirahan@gmail.com>
  */
-final class Response extends HttpMessage
+final class Response
 {
-    public private(set) HttpStatus $status;
+    public private(set) ResponseCookieList $cookies;
 
     /**
-     * Computed on every read — addCookie() and friends keep changing
-     * $headers underneath.
-     *
-     * @var array<value-of<HttpCookies>, string>
-     */
-    #[Override]
-    public array $cookies {
-        get {
-            $acc = [];
-
-            foreach ($this->headers[HttpHeaders::SetCookie->value] ?? [] as $line) {
-                [$pair] = explode(';', $line, 2); // drop Path=/Expires=/HttpOnly/etc
-                $acc = [...$acc, ...self::parseCookiePair($pair)];
-            }
-
-            return $acc;
-        }
-    }
-
-
-    /**
-     * @param array<value-of<HttpHeaders>, list<string>> $headers
      * @param Closure(): void $sender
      */
     private function __construct(
-        HttpStatus $status,
-        array $headers,
-        private Closure $sender,
+        public private(set) HttpStatus $status,
+        public private(set) HttpHeaderList $headers,
+        private Closure $sender
     ) {
-        parent::__construct($headers);
-        $this->status = $status;
-    }
-
-    /**
-     * 🔴 ⚠️ Writes to PHP's global output state. ⚠️ 🔴
-     *
-     * Everything upstream builds a Response as plain data; the actual
-     * response emitting happens here.
-     */
-    public function send(): void
-    {
-        http_response_code($this->status->value);
-
-        foreach ($this->headers as $name => $values) {
-            foreach ($values as $value) {
-                header("$name: $value", replace: false);
-            }
-        }
-
-        ($this->sender)();
+        $this->cookies = new ResponseCookieList();
     }
 
 
@@ -87,7 +50,7 @@ final class Response extends HttpMessage
     {
         return new self(
             $status,
-            $headers,
+            HttpHeaderList::fromArray($headers),
             static function () use ($body): void {
                 echo $body;
             }
@@ -130,7 +93,11 @@ final class Response extends HttpMessage
      */
     public static function stream(Closure $emit, array $headers): self
     {
-        return new self(HttpStatus::Ok, $headers, $emit);
+        return new self(
+            HttpStatus::Ok,
+            HttpHeaderList::fromArray($headers),
+            $emit
+        );
     }
 
     /**
@@ -149,15 +116,19 @@ final class Response extends HttpMessage
             throw new WebError("Cannot determine size of file: {$path}");
         }
 
+        $ascii = addcslashes(preg_replace('/[^\x20-\x7E]/', '_', $name) ?? 'download', '"\\');
+
         $headers = [
             HttpHeaders::ContentType->value => ['application/octet-stream'],
-            HttpHeaders::ContentDisposition->value => ["attachment; filename=\"{$name}\""],
+            HttpHeaders::ContentDisposition->value => [
+                "attachment; filename=\"{$ascii}\"; filename*=UTF-8''" . rawurlencode($name),
+            ],
             HttpHeaders::ContentLength->value => [(string) $size],
         ];
 
         return new self(
             HttpStatus::Ok,
-            $headers,
+            HttpHeaderList::fromArray($headers),
             static function () use ($path): void {
                 readfile($path);
             }
@@ -207,47 +178,33 @@ final class Response extends HttpMessage
     }
 
 
-    public function changeStatus(HttpStatus $status): static
+    public function changeStatus(HttpStatus $status): self
     {
         $this->status = $status;
         return $this;
     }
 
 
-    /**
-     * Renders "name=value; Attr; Attr" as it appears on the wire.
-     */
-    private static function renderCookie(
-        HttpCookies $name,
-        string $value,
-        bool $secure,
-        string $path = '/',
-        bool $httpOnly = true,
-        CookieSameSite $sameSite = CookieSameSite::Lax,
-        ?int $maxAge = null,
-        ?string $domain = null,
-        ?string $expires = null,
-    ): string {
-        $line = "{$name->value}={$value}; Path={$path}; SameSite={$sameSite->value}";
-
-        if ($domain !== null) {
-            $line .= "; Domain={$domain}";
-        }
-        if ($maxAge !== null) {
-            $line .= "; Max-Age={$maxAge}";
-        }
-        if ($expires !== null) {
-            $line .= "; Expires={$expires}";
-        }
-        if ($httpOnly) {
-            $line .= '; HttpOnly';
-        }
-        if ($secure) {
-            $line .= '; Secure';
+    public function addHeader(HttpHeaders $header, string $value): self
+    {
+        if (!$header->isResponseHeader()) {
+            throw new WebError("Header {$header->value} cannot be attached to Http Response");
         }
 
-        return $line;
+        if ($header === HttpHeaders::SetCookie) {
+            throw new WebError("Prohibited: Use addCookie(...)");
+        }
+
+        $this->headers[$header] = $value;
+        return $this;
     }
+
+    public function rmHeader(HttpHeaders $header): self
+    {
+        unset($this->headers[$header]);
+        return $this;
+    }
+
 
     /**
      * Queues a Set-Cookie line. Appends rather than replaces —
@@ -256,24 +213,23 @@ final class Response extends HttpMessage
     public function addCookie(
         HttpCookies $name,
         string $value,
-        bool $secure,
+        bool $secure = true,
         string $path = '/',
         bool $httpOnly = true,
         CookieSameSite $sameSite = CookieSameSite::Lax,
         ?int $maxAge = null,
         ?string $domain = null,
-    ): static {
-        $this->headers[HttpHeaders::SetCookie->value][] = $this->renderCookie(
-            name: $name,
-            value: $value,
-            path: $path,
-            httpOnly: $httpOnly,
-            secure: $secure,
-            sameSite: $sameSite,
-            maxAge: $maxAge,
-            domain: $domain,
+    ): self {
+        $this->cookies->add(
+            $name,
+            $value,
+            $secure,
+            $path,
+            $httpOnly,
+            $sameSite,
+            $maxAge,
+            $domain
         );
-
         return $this;
     }
 
@@ -281,19 +237,9 @@ final class Response extends HttpMessage
      * Un-queues a line added earlier in THIS response.
      * The browser's own copy is untouched — that's expireCookie().
      */
-    public function rmCookie(HttpCookies $name): static
+    public function rmCookie(HttpCookies $name): self
     {
-        $lines = array_values(array_filter(
-            $this->headers[HttpHeaders::SetCookie->value] ?? [],
-            static fn (string $line) => !str_starts_with($line, "{$name->value}="),
-        ));
-
-        if ($lines === []) {
-            unset($this->headers[HttpHeaders::SetCookie->value]);
-        } else {
-            $this->headers[HttpHeaders::SetCookie->value] = $lines;
-        }
-
+        $this->cookies->rm($name);
         return $this;
     }
 
@@ -301,22 +247,33 @@ final class Response extends HttpMessage
      * Asks the browser to drop a cookie it holds, by sending an already-
      * expired one. $path and $domain must match what it was set with, or
      * the browser sees a different cookie and ignores this.
-     *
-     * No Secure: the value is empty, it isn't part of the cookie's
-     * identity, and a Secure line dies over plain HTTP.
      */
-    public function expireCookie(HttpCookies $name, string $path = '/', ?string $domain = null): static
+    public function expireCookie(HttpCookies $name, string $path = '/', ?string $domain = null): self
     {
-        $this->headers[HttpHeaders::SetCookie->value][] = $this->renderCookie(
-            name: $name,
-            value: '',
-            secure: false,
-            path: $path,
-            maxAge: 0,
-            domain: $domain,
-            expires: 'Thu, 01 Jan 1970 00:00:00 GMT',
-        );
-
+        $this->cookies->expire($name, $path, $domain);
         return $this;
+    }
+
+    /**
+     * 🔴 ⚠️ Writes to PHP's global output state. ⚠️ 🔴
+     *
+     * Everything upstream builds a Response as plain data; the actual
+     * response emitting happens here.
+     */
+    public function send(): void
+    {
+        http_response_code($this->status->value);
+
+        foreach ($this->headers->toLines() as $line) {
+            header($line, replace: false);
+        }
+
+        foreach ($this->cookies->toLines() as $line) {
+            header($line, replace: false);
+        }
+
+        ($this->sender)();
+
+        flush();
     }
 }

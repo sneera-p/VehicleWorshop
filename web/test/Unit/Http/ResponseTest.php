@@ -7,18 +7,21 @@ namespace Vwork\Web\Test\Unit\Http;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
-use Vwork\Web\Http\CookieSameSite;
-use Vwork\Web\Http\HttpCookies;
-use Vwork\Web\Http\HttpHeaders;
+use Vwork\Web\Http\Cookies\HttpCookies;
+use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Response;
 use Vwork\Web\WebError;
 
+/**
+ * Response's own behaviour: factories, header guards, and delegation to
+ * its cookie list. Set-Cookie rendering is covered by ResponseCookieListTest.
+ */
 final class ResponseTest extends TestCase
 {
-    private const array HTML = [HttpHeaders::ContentType->value => ['text/html; charset=utf-8']];
-    private const array TEXT = [HttpHeaders::ContentType->value => ['text/plain; charset=utf-8']];
+    private const array HTML = ['Content-Type' => ['text/html; charset=utf-8']];
+    private const array TEXT = ['Content-Type' => ['text/plain; charset=utf-8']];
 
     /**
      * @param list<mixed> $args
@@ -27,14 +30,13 @@ final class ResponseTest extends TestCase
     #[Test]
     #[TestWith(['make', ['raw', [], HttpStatus::Found], HttpStatus::Found, [], 'raw'])]
     #[TestWith(['html', ['<p>x</p>'], HttpStatus::Ok, self::HTML, '<p>x</p>'])]
-    #[TestWith(['html', ['', HttpStatus::MethodNotAllowed], HttpStatus::MethodNotAllowed, self::HTML, ''])]
+    #[TestWith(['html', ['', HttpStatus::NotFound], HttpStatus::NotFound, self::HTML, ''])]
     #[TestWith(['text', ['0'], HttpStatus::Ok, self::TEXT, '0'])]
-    #[TestWith(['error', [HttpStatus::MethodNotAllowed, 'nope'], HttpStatus::MethodNotAllowed, self::TEXT, 'nope'])]
-    #[TestWith(['error', [HttpStatus::MethodNotAllowed], HttpStatus::MethodNotAllowed, self::TEXT, ''])]
-    #[TestWith(['redirect', ['/jobs/42'], HttpStatus::Found, [HttpHeaders::Location->value => ['/jobs/42']], ''])]
-    #[TestWith(['redirect', ['/x', HttpStatus::Ok], HttpStatus::Ok, [HttpHeaders::Location->value => ['/x']], ''])]
-    #[TestWith(['methodNotAllowed', [[HttpMethods::GET, HttpMethods::POST]], HttpStatus::MethodNotAllowed, [HttpHeaders::Allow->value => ['GET, POST']], ''])]
-    #[TestWith(['methodNotAllowed', [[]], HttpStatus::MethodNotAllowed, [HttpHeaders::Allow->value => ['']], ''])]
+    #[TestWith(['error', [HttpStatus::Conflict, 'nope'], HttpStatus::Conflict, self::TEXT, 'nope'])]
+    #[TestWith(['error', [HttpStatus::InternalServerError], HttpStatus::InternalServerError, self::TEXT, ''])]
+    #[TestWith(['redirect', ['/jobs/42'], HttpStatus::Found, ['Location' => ['/jobs/42']], ''])]
+    #[TestWith(['redirect', ['/jobs', HttpStatus::SeeOther], HttpStatus::SeeOther, ['Location' => ['/jobs']], ''])]
+    #[TestWith(['methodNotAllowed', [[HttpMethods::GET, HttpMethods::POST]], HttpStatus::MethodNotAllowed, ['Allow' => ['GET, POST']], ''])]
     #[TestWith(['noContent', [], HttpStatus::NoContent, [], ''])]
     public function factories_build_status_headers_and_body(string $factory, array $args, HttpStatus $status, array $headers, string $body): void
     {
@@ -42,23 +44,31 @@ final class ResponseTest extends TestCase
         $response = Response::$factory(...$args);
 
         $this->assertSame($status, $response->status);
-        $this->assertSame($headers, $response->headers);
+        $this->assertSame($headers, $response->headers->list);
 
         $this->expectOutputString($body);
         $response->send();
     }
 
     #[Test]
+    public function redirect_rejects_a_location_that_could_split_the_header(): void
+    {
+        $this->expectException(WebError::class);
+        Response::redirect("/x\r\nSet-Cookie: session_token=evil");
+    }
+
+    #[Test]
     public function stream_runs_the_emitter_only_on_send(): void
     {
         $calls = 0;
-        $headers = [HttpHeaders::ContentType->value => ['text/event-stream']];
         $response = Response::stream(static function () use (&$calls): void {
             $calls++;
             echo "data: a\n\n";
-        }, $headers);
+        }, ['Content-Type' => ['text/event-stream']]);
 
-        $this->assertSame([0, HttpStatus::Ok, $headers], [$calls, $response->status, $response->headers]);
+        $this->assertSame(0, $calls);
+        $this->assertSame(HttpStatus::Ok, $response->status);
+        $this->assertSame(['Content-Type' => ['text/event-stream']], $response->headers->list);
 
         $this->expectOutputString("data: a\n\n");
         $response->send();
@@ -66,10 +76,11 @@ final class ResponseTest extends TestCase
     }
 
     #[Test]
-    #[TestWith(['0123456789', 'invoice.pdf'])]
-    #[TestWith(["binary\x00payload", 'x.bin'])]
-    #[TestWith(['', 'empty.txt'])]
-    public function file_sets_download_headers_and_streams_contents(string $contents, string $name): void
+    #[TestWith(['0123456789', 'invoice.pdf', 'attachment; filename="invoice.pdf"; filename*=UTF-8\'\'invoice.pdf'])]
+    #[TestWith(["binary\x00payload", 'x.bin', 'attachment; filename="x.bin"; filename*=UTF-8\'\'x.bin'])]
+    #[TestWith(['', 'invoice "final".pdf', 'attachment; filename="invoice \"final\".pdf"; filename*=UTF-8\'\'invoice%20%22final%22.pdf'])]
+    #[TestWith(['x', 'රසීද.pdf', 'attachment; filename="____________.pdf"; filename*=UTF-8\'\'%E0%B6%BB%E0%B7%83%E0%B7%93%E0%B6%AF.pdf'])]
+    public function file_sets_download_headers_and_streams_contents(string $contents, string $name, string $disposition): void
     {
         $path = (string) tempnam(sys_get_temp_dir(), 'vwork_');
         file_put_contents($path, $contents);
@@ -79,10 +90,10 @@ final class ResponseTest extends TestCase
 
             $this->assertSame(HttpStatus::Ok, $response->status);
             $this->assertSame([
-                HttpHeaders::ContentType->value => ['application/octet-stream'],
-                HttpHeaders::ContentDisposition->value => ["attachment; filename=\"{$name}\""],
-                HttpHeaders::ContentLength->value => [(string) strlen($contents)],
-            ], $response->headers);
+                'Content-Type' => ['application/octet-stream'],
+                'Content-Disposition' => [$disposition],
+                'Content-Length' => [(string) strlen($contents)],
+            ], $response->headers->list);
 
             $this->expectOutputString($contents);
             $response->send();
@@ -109,91 +120,42 @@ final class ResponseTest extends TestCase
         $this->assertSame(HttpStatus::NoContent, $response->status);
     }
 
-    /**
-     * @param array<string, mixed> $opts
-     */
     #[Test]
-    #[TestWith([['secure' => false], 'session_token=abc; Path=/; SameSite=Lax; HttpOnly'])]
-    #[TestWith([['secure' => true], 'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure'])]
-    #[TestWith([['secure' => false, 'httpOnly' => false], 'session_token=abc; Path=/; SameSite=Lax'])]
-    #[TestWith([['secure' => false, 'maxAge' => 0], 'session_token=abc; Path=/; SameSite=Lax; Max-Age=0; HttpOnly'])]
-    #[TestWith([
-        ['secure' => true, 'path' => '/app', 'sameSite' => CookieSameSite::Strict, 'maxAge' => 3600, 'domain' => 'example.com'],
-        'session_token=abc; Path=/app; SameSite=Strict; Domain=example.com; Max-Age=3600; HttpOnly; Secure',
-    ])]
-    public function add_cookie_renders_the_set_cookie_line(array $opts, string $expected): void
-    {
-        /** @phpstan-ignore argument.type */
-        $response = Response::html('x')->addCookie(HttpCookies::SessionToken, 'abc', ...$opts);
-
-        $this->assertSame([
-            ...self::HTML,
-            HttpHeaders::SetCookie->value => [$expected],
-        ], $response->headers);
-        $this->assertSame([HttpCookies::SessionToken->value => 'abc'], $response->cookies);
-    }
-
-    #[Test]
-    public function add_cookie_appends_and_cookies_view_tracks_mutations(): void
-    {
-        $response = Response::noContent()
-            ->addCookie(HttpCookies::SessionToken, 'first', secure: false)
-            ->addCookie(HttpCookies::CsrfToken, 'xyz', secure: true, domain: 'example.com')
-            ->addCookie(HttpCookies::SessionToken, 'second', secure: false);
-
-        $this->assertCount(3, $response->headers[HttpHeaders::SetCookie->value]);
-        $this->assertSame([ // later line wins, attributes stripped
-            HttpCookies::SessionToken->value => 'second',
-            HttpCookies::CsrfToken->value => 'xyz',
-        ], $response->cookies);
-
-        $response->rmCookie(HttpCookies::SessionToken);
-        $this->assertSame([HttpCookies::CsrfToken->value => 'xyz'], $response->cookies);
-    }
-
-    /**
-     * @param list<string> $added
-     * @param list<string> $remaining
-     */
-    #[Test]
-    #[TestWith([[], 'session_token', []])]
-    #[TestWith([['session_token'], 'session_token', []])]
-    #[TestWith([['session_token', 'session_token'], 'session_token', []])]
-    #[TestWith([['session_token', 'csrf_token'], 'session_token', ['csrf_token']])]
-    #[TestWith([['csrf_token', 'session_token', 'csrf_token'], 'session_token', ['csrf_token', 'csrf_token']])]
-    #[TestWith([['csrf_token'], 'session_token', ['csrf_token']])]
-    public function rm_cookie_removes_every_line_for_that_name(array $added, string $removed, array $remaining): void
+    public function add_and_rm_header_mutate_in_place(): void
     {
         $response = Response::html('x');
-        foreach ($added as $name) {
-            $response->addCookie(HttpCookies::from($name), 'v', secure: false);
-        }
 
-        $this->assertSame($response, $response->rmCookie(HttpCookies::from($removed)));
+        $this->assertSame($response, $response->addHeader(HttpHeaders::CacheControl, 'no-store'));
+        $this->assertSame(['no-store'], $response->headers[HttpHeaders::CacheControl]);
 
-        $lines = $response->headers[HttpHeaders::SetCookie->value] ?? null;
-        if ($remaining === []) {
-            $this->assertNull($lines, 'Set-Cookie key should be dropped entirely');
-        } else {
-            $this->assertIsList($lines);
-            $this->assertSame($remaining, array_map(static fn (string $l) => explode('=', $l, 2)[0], $lines));
-        }
-        $this->assertSame(self::HTML[HttpHeaders::ContentType->value], $response->headers[HttpHeaders::ContentType->value]);
+        $this->assertSame($response, $response->rmHeader(HttpHeaders::CacheControl));
+        $this->assertSame(self::HTML, $response->headers->list);
     }
 
     #[Test]
-    #[TestWith(['/', null, 'session_token=; Path=/; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'])]
-    #[TestWith(['/app', 'example.com', 'session_token=; Path=/app; SameSite=Lax; Domain=example.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'])]
-    public function expire_cookie_appends_an_empty_already_expired_line(string $path, ?string $domain, string $expected): void
+    #[TestWith([HttpHeaders::Authorization])] // request-only
+    #[TestWith([HttpHeaders::Cookie])]        // request-only
+    #[TestWith([HttpHeaders::SetCookie])]     // must go through the cookie methods
+    public function add_header_refuses_headers_that_do_not_belong_on_a_response(HttpHeaders $header): void
     {
-        $response = Response::noContent()
-            ->addCookie(HttpCookies::CsrfToken, 'keep', secure: true)
-            ->expireCookie(HttpCookies::SessionToken, $path, $domain);
+        $this->expectException(WebError::class);
+        Response::html('x')->addHeader($header, 'v');
+    }
 
-        $this->assertSame($expected, $response->headers[HttpHeaders::SetCookie->value][1]);
+    #[Test]
+    public function cookie_methods_delegate_to_the_cookie_list(): void
+    {
+        $response = Response::noContent();
+
+        $this->assertSame($response, $response->addCookie(HttpCookies::SessionToken, 'abc'));
+        $this->assertSame($response, $response->addCookie(HttpCookies::CsrfToken, 'xyz'));
+        $this->assertSame($response, $response->rmCookie(HttpCookies::CsrfToken));
+        $this->assertSame($response, $response->expireCookie(HttpCookies::RefreshToken, '/auth'));
+
         $this->assertSame([
-            HttpCookies::CsrfToken->value => 'keep',
-            HttpCookies::SessionToken->value => '',
-        ], $response->cookies);
+            'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure',
+            'refresh_token=; Path=/auth; SameSite=Lax; Max-Age=0; HttpOnly; Secure',
+        ], iterator_to_array($response->cookies->toLines(), false));
+        $this->assertSame([], $response->headers->list); // cookies never leak into the header list
     }
 }

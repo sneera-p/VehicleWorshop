@@ -8,14 +8,18 @@ use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
-use Vwork\Web\Http\HttpCookies;
-use Vwork\Web\Http\HttpHeaders;
+use Vwork\Web\Http\Cookies\HttpCookies;
+use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Test\Mocks\MockInputStream;
-use Vwork\Web\WebError;
 use Vwork\Web\WebException;
 
+/**
+ * Request::fromGlobals() only: reading the superglobals and handing the
+ * pieces to the right place. Header and cookie parsing rules are covered
+ * by HttpHeaderListTest and RequestCookieListTest.
+ */
 final class RequestTest extends TestCase
 {
     /** @var list<array<mixed, mixed>> */
@@ -74,7 +78,7 @@ final class RequestTest extends TestCase
     #[TestWith(['GET', HttpMethods::GET])]
     #[TestWith(['POST', HttpMethods::POST])]
     #[TestWith(['get', HttpMethods::GET])]
-    #[TestWith(['Post', HttpMethods::POST])]
+    #[TestWith(['Patch', HttpMethods::PATCH])]
     public function resolves_the_method_case_insensitively(string $raw, HttpMethods $expected): void
     {
         $this->assertSame($expected, self::request(['REQUEST_METHOD' => $raw])->method);
@@ -82,6 +86,7 @@ final class RequestTest extends TestCase
 
     #[Test]
     #[TestWith(['BREW'])]
+    #[TestWith(['TRACE'])]
     #[TestWith([''])]
     public function throws_on_an_unsupported_method(string $raw): void
     {
@@ -114,24 +119,22 @@ final class RequestTest extends TestCase
         $this->assertSame(['name' => 'Oil change', 'urgent' => 'true'], $request->formData);
     }
 
-    /**
-     * @param array<string, string> $server
-     * @param array<string, list<string>> $expected
-     */
     #[Test]
-    #[TestWith([[], []])]
-    #[TestWith([['HTTP_X_MADE_UP' => 'whatever', 'SERVER_NAME' => 'localhost'], []])]
-    #[TestWith([
-        ['HTTP_CONTENT_TYPE' => 'application/json', 'HTTP_USER_AGENT' => 'phpunit', 'HTTP_X_MADE_UP' => 'x'],
-        [HttpHeaders::ContentType->value => ['application/json'], HttpHeaders::UserAgent->value => ['phpunit']],
-    ])]
-    public function keeps_only_known_http_headers(array $server, array $expected): void
+    public function headers_are_read_from_server(): void
     {
-        $headers = self::request($server)->headers;
+        $request = self::request(['CONTENT_TYPE' => 'application/json', 'HTTP_USER_AGENT' => 'phpunit']);
 
-        ksort($headers);
-        ksort($expected);
-        $this->assertSame($expected, $headers);
+        $this->assertSame('application/json', $request->headers[HttpHeaders::ContentType]);
+        $this->assertSame('phpunit', $request->headers[HttpHeaders::UserAgent]);
+    }
+
+    #[Test]
+    public function cookies_are_parsed_from_the_cookie_header(): void
+    {
+        $request = self::request(['HTTP_COOKIE' => 'session_token=abc; csrf_token=xyz']);
+
+        $this->assertSame('abc', $request->cookies[HttpCookies::SessionToken]);
+        $this->assertSame('xyz', $request->cookies[HttpCookies::CsrfToken]);
     }
 
     /**
@@ -156,44 +159,5 @@ final class RequestTest extends TestCase
         $actual = array_map(static fn ($f) => $f->name, self::request(files: $files)->files);
 
         $this->assertSame($expected, $actual);
-    }
-
-    /**
-     * @param array<string, string> $expected
-     */
-    #[Test]
-    #[TestWith([null, []])]
-    #[TestWith(['', []])]
-    #[TestWith(['session_token=abc; csrf_token=xyz', ['session_token' => 'abc', 'csrf_token' => 'xyz']])]
-    #[TestWith(['session_token=abc; ga_tracking=xyz', ['session_token' => 'abc']])]
-    #[TestWith(['  session_token = abc ;;garbage; ', ['session_token' => 'abc']])]
-    #[TestWith(['session_token=', ['session_token' => '']])]
-    #[TestWith(['session_token=a=b', ['session_token' => 'a=b']])]
-    #[TestWith(['session_token=old; session_token=new', ['session_token' => 'new']])]
-    public function cookies_parses_known_names_from_the_cookie_header(?string $header, array $expected): void
-    {
-        $request = self::request($header === null ? [] : ['HTTP_COOKIE' => $header]);
-
-        $this->assertSame($expected, $request->cookies);
-        $this->assertSame($expected, $request->cookies); // memoised read is stable
-    }
-
-    /**
-     * @param list<mixed> $args
-     */
-    #[Test]
-    #[TestWith(['addHeader', [HttpHeaders::Cookie, 'session_token=evil']])]
-    #[TestWith(['rmHeader', [HttpHeaders::Cookie]])]
-    public function refuses_to_modify_the_cookie_header(string $method, array $args): void
-    {
-        $request = self::request(['HTTP_COOKIE' => 'session_token=abc']);
-
-        try {
-            $request->$method(...$args);
-            $this->fail('Expected WebError');
-        } catch (WebError) {
-        }
-
-        $this->assertSame([HttpCookies::SessionToken->value => 'abc'], $request->cookies);
     }
 }

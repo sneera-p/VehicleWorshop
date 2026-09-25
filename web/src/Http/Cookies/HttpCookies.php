@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Vwork\Web\Http;
+namespace Vwork\Web\Http\Cookies;
 
 /**
  * Contains only the Cookies used by web/

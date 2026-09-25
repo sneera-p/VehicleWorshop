@@ -6,7 +6,7 @@ namespace Vwork\Web\Controllers;
 
 use Closure;
 use Vwork\Web\Http\HttpStatus;
-use Vwork\Web\Http\HttpHeaders;
+use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\Response;
 use Vwork\Web\Utils\View;
 

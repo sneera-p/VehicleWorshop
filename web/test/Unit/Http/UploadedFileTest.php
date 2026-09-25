@@ -11,61 +11,47 @@ use Vwork\Web\Http\UploadedFile;
 
 final class UploadedFileTest extends TestCase
 {
-    /**
-     * @param array{
-     *     name: string,
-     *     tmp_name: string,
-     *     type: string,
-     *     size: int,
-     *     error: int
-     * } $data
-     */
-    #[Test]
-    #[TestWith([[
-        'name' => 'nnn',
-        'tmp_name' => 'ttt',
-        'type' => 't',
-        'size' => 16,
-        'error' => UPLOAD_ERR_OK
-    ]])]
-    public function single_array_parse(array $data): void
-    {
-        $file = UploadedFile::fromSingleArray($data);
+    private const array MULTI = [
+        'name' => ['a.jpg', 'b.pdf'],
+        'tmp_name' => ['/tmp/a', '/tmp/b'],
+        'type' => ['image/jpeg', 'application/pdf'],
+        'size' => [16, 17],
+        'error' => [UPLOAD_ERR_OK, UPLOAD_ERR_PARTIAL],
+    ];
 
-        $this->assertEquals($data['name'], $file->name);
-        $this->assertEquals($data['tmp_name'], $file->path);
-        $this->assertEquals($data['type'], $file->type);
-        $this->assertEquals($data['size'], $file->size);
-        $this->assertEquals($data['error'], $file->error);
+    #[Test]
+    public function from_single_array_maps_every_field(): void
+    {
+        $file = UploadedFile::fromSingleArray([
+            'name' => 'a.jpg',
+            'tmp_name' => '/tmp/a',
+            'type' => 'image/jpeg',
+            'size' => 16,
+            'error' => UPLOAD_ERR_OK,
+        ]);
+
+        $this->assertSame(
+            ['a.jpg', '/tmp/a', 'image/jpeg', 16, UPLOAD_ERR_OK],
+            [$file->name, $file->path, $file->type, $file->size, $file->error],
+        );
     }
 
     /**
      * @param array{
-     *     name: list<string>,
-     *     tmp_name: list<string>,
-     *     type: list<string>,
-     *     size: list<int>,
-     *     error: list<int>
-     * } $data
+     *  0: string,
+     *  1: string,
+     *  2: string,
+     *  3: int,
+     *  4: int
+     * } $expected
      */
     #[Test]
-    #[TestWith([[
-        'name' => ['nnn', 'mmm'],
-        'tmp_name' => ['ttt', 'sss'],
-        'type' => ['t', 'u'],
-        'size' => [16, 17],
-        'error' => [UPLOAD_ERR_OK, UPLOAD_ERR_PARTIAL]
-    ]])]
-    public function multi_array_parse(array $data): void
+    #[TestWith([0, ['a.jpg', '/tmp/a', 'image/jpeg', 16, UPLOAD_ERR_OK]])]
+    #[TestWith([1, ['b.pdf', '/tmp/b', 'application/pdf', 17, UPLOAD_ERR_PARTIAL]])]
+    public function from_multi_array_picks_one_index_from_every_field(int $index, array $expected): void
     {
-        foreach (array_keys($data['name']) as $index) {
-            $file = UploadedFile::fromMultiArray($data, $index);
+        $file = UploadedFile::fromMultiArray(self::MULTI, $index);
 
-            $this->assertEquals($data['name'][$index], $file->name);
-            $this->assertEquals($data['tmp_name'][$index], $file->path);
-            $this->assertEquals($data['type'][$index], $file->type);
-            $this->assertEquals($data['size'][$index], $file->size);
-            $this->assertEquals($data['error'][$index], $file->error);
-        }
+        $this->assertSame($expected, [$file->name, $file->path, $file->type, $file->size, $file->error]);
     }
 }

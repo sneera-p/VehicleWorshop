@@ -19,10 +19,16 @@ final class View
         $path = getenv('VIEW_PATH');
 
         if ($path === false || $path === '') {
-            throw new WebError('VIEW_PATH is not set');
+            throw new WebError('VIEW_PATH is not set correctly');
         }
 
-        return __DIR__ . '/../../../' . $path;
+        $pruned = realpath(__DIR__ . '/../../../' . $path);
+
+        if ($pruned === false) {
+            throw new WebError("Path $path does not exist");
+        }
+
+        return $pruned;
     }
 
     /**

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Http;
 
-use Override;
 use Vwork\Shared\Types\Cast;
-use Vwork\Web\WebError;
 use Vwork\Web\WebException;
+use Vwork\Web\Http\Headers\HttpHeaderList;
+use Vwork\Web\Http\Cookies\RequestCookieList;
 
 /**
  * What came in.
@@ -20,56 +20,9 @@ use Vwork\Web\WebException;
  *
  * @author Senira <senirahan@gmail.com>
  */
-final class Request extends HttpMessage
+final class Request
 {
     /**
-     * "Content-Type" => "HTTP_CONTENT_TYPE", built once per worker
-     * instead of re-deriving it for every header of every request.
-     *
-     * @return array<string, HttpHeaders>
-     */
-    private static function serverKeyMap(): array
-    {
-        /**
-         * $_SERVER key ("HTTP_CONTENT_TYPE") => HttpHeaders case, built once
-         * per worker process rather than re-deriving the name transformation
-         * on every header of every request.
-         *
-         * @var array<string, HttpHeaders> | null
-         */
-        static $map = null;
-
-        if ($map === null) {
-            $map = [];
-            foreach (HttpHeaders::cases() as $header) {
-                $map['HTTP_' . strtoupper(str_replace('-', '_', $header->value))] = $header;
-            }
-        }
-
-        return $map;
-    }
-
-
-    /**
-     * Parsed on first read, then kept — a Request never changes.
-     // A request MUST NOT change it's Cookie contents
-     *
-     * @var array<value-of<HttpCookies>, string>
-     */
-    #[Override]
-    public array $cookies {
-        get => $this->cookies ??= (function (): array {
-            $acc = [];
-            foreach (explode(';', $this->headers[HttpHeaders::Cookie->value][0] ?? '') as $pair) {
-                $acc = [...$acc, ...self::parseCookiePair($pair)];
-            }
-            return $acc;
-        })();
-    }
-
-
-    /**
-     * @param array<value-of<HttpHeaders>, list<string>> $headers
      * @param array<string, string> $query
      * @param array<string, string> $formData
      * @param array<string, UploadedFile> $files
@@ -77,59 +30,14 @@ final class Request extends HttpMessage
     private function __construct(
         public readonly HttpMethods $method,
         public readonly string $path,
-        array $headers,
+        public readonly HttpHeaderList $headers,
+        public readonly RequestCookieList $cookies,
         public readonly array $query,
         public readonly string $body,
         public readonly array $formData,
         public readonly array $files,
         public readonly string $ip,
     ) {
-        parent::__construct($headers);
-    }
-
-
-    #[Override]
-    public function addHeader(HttpHeaders $key, string $value): static
-    {
-        if ($key === HttpHeaders::Cookie) {
-            throw new WebError("Can't modify incoming cookies");
-        }
-        return parent::addHeader($key, $value);
-    }
-
-    #[Override]
-    public function rmHeader(HttpHeaders $key): static
-    {
-        if ($key === HttpHeaders::Cookie) {
-            throw new WebError("Can't modify incoming cookies");
-        }
-        return parent::rmHeader($key);
-    }
-
-
-    /**
-     * Drops anything HttpHeaders doesn't know about, since $headers is
-     * typed to the closed enum set.
-     *
-     * @param array<string|int, mixed> $rawServer
-     * @return array<value-of<HttpHeaders>, list<string>>
-     */
-    private static function extractHeaders(array $rawServer): array
-    {
-        /** @var array<value-of<HttpHeaders>, list<string>> */
-        $acc = [];
-
-        foreach (self::serverKeyMap() as $serverKey => $header) {
-            $value = $rawServer[$serverKey] ?? null;
-            if ($value === null) {
-                continue;
-            }
-
-            /** @var string $value */
-            $acc[$header->value][] = $value;
-        }
-
-        return $acc;
     }
 
     /**
@@ -202,10 +110,13 @@ final class Request extends HttpMessage
             $body = '';
         }
 
+        $headers = HttpHeaderList::fromServer($_SERVER);
+
         return new self(
             method: $method,
             body: $body,
-            headers: self::extractHeaders($_SERVER),
+            headers: $headers,
+            cookies: RequestCookieList::fromHeader($headers),
             files: self::extractFiles($_FILES),
             ip: Cast::string($_SERVER['REMOTE_ADDR']),
             path: explode('?', Cast::string($_SERVER['REQUEST_URI']), 2)[0],

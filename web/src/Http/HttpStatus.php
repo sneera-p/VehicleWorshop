@@ -16,6 +16,7 @@ enum HttpStatus: int
     case NoContent = 204;
 
     case Found = 302;
+    case SeeOther = 303;
 
     case BadRequest = 400;
     case Unauthorized = 401;
@@ -35,6 +36,7 @@ enum HttpStatus: int
             self::Created => 'Created',
             self::NoContent => 'No Content',
             self::Found => 'Found',
+            self::SeeOther => 'See Other',
             self::BadRequest => 'Bad Request',
             self::Unauthorized => 'Unauthorized',
             self::Forbidden => 'Forbidden',

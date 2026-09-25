@@ -18,5 +18,4 @@ enum HttpMethods: string
     case DELETE = 'DELETE';
     case HEAD = 'HEAD';
     case OPTIONS = 'OPTIONS';
-    case TRACE = 'TRACE';
 }
