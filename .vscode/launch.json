@@ -1,21 +1,24 @@
 {
    // Debugger configurations. Press F5 or use the Run & Debug panel.
    //
-   // Requires Xdebug, which the Dockerfile's `dev` stage installs and
-   // configures (see .docker/Dockerfile). Xdebug is set to
-   // start_with_request=trigger, so it stays dormant until a debug session
-   // actually triggers it — no performance hit on normal dev requests.
+   // Each config starts a listener inside the test container (where VS Code
+   // runs). Xdebug then connects to it:
+   //   - tests and CLI scripts: Xdebug in the test container itself
+   //     (test stage of web/Dockerfile)
+   //   - web requests: Xdebug in the web container, which must be told to
+   //     connect to "test" (XDEBUG_CONFIG in docker-compose.dev.yml)
    //
-   // Note: no "pathMappings" needed here. Because VS Code runs INSIDE the
-   // devcontainer, ${workspaceFolder} already resolves to /app, the same
-   // path the code lives at in the container. pathMappings is only needed
-   // when the editor runs on the host and the code sits at a different
-   // path inside the container.
+   // Xdebug is set to start_with_request=trigger, so it stays dormant until
+   // a debug session actually triggers it — no cost on normal requests.
+   //
+   // No "pathMappings" needed: the code is at /app in every container, and
+   // ${workspaceFolder} is /app too.
    "version": "0.2.0",
    "configurations": [
       {
-         // Primary workflow: start this, then load a page in the browser.
-         // Xdebug connects back and breakpoints hit.
+         // Start this, then load a page with the XDEBUG_TRIGGER cookie set
+         // (e.g. via the "Xdebug helper" browser extension). Also used by
+         // the PHPUnit extension's "Debug Test" (phpunit.debuggerConfig).
          "name": "Listen for Xdebug (web)",
          "type": "php",
          "request": "launch",
@@ -25,6 +28,8 @@
          ]
       },
       {
+         // Needs the worker's Xdebug pointed here, in docker-compose.dev.yml:
+         //   XDEBUG_CONFIG: "client_host=test client_port=9004"
          "name": "Listen for Xdebug (worker)",
          "type": "php",
          "request": "launch",

@@ -4,30 +4,33 @@
       "../.docker/docker-compose.dev.yml"
    ],
 
+   // VS Code attaches to the test container: it has PHP, Composer, Bun and
+   // Playwright, so every suite and tool runs from here. web, db and cache
+   // run alongside it as ordinary compose services.
    "service": "test",
    "shutdownAction": "stopCompose",
    "overrideCommand": false,
 
    "workspaceFolder": "/app",
    "mounts": [
-      "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached",
+      // Only one of HOME (Linux/macOS) or USERPROFILE (Windows) is ever set,
+      // so this resolves to the home folder on every host OS.
+      "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached",
       // .gitconfig alone only carries name/email/aliases — it has nothing
       // to do with authentication. Without this, `git push`/`pull` over SSH fails
-      "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
+      "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
    ],
 
    "postCreateCommand": "git config core.hooksPath .githooks && chmod +x .githooks/*",
    "postStartCommand": "php .tools/phpstan-src.php",
 
-   "forwardPorts": ["web:80", 9003],
+   // No 9003 here: Xdebug connects to the debug listener inside this
+   // container, so there is nothing to forward to the host.
+   "forwardPorts": ["web:80"],
    "portsAttributes": {
       "web:80": {
          "label": "vwork",
          "onAutoForward": "openBrowser"
-      },
-      "9003": {
-         "label": "PHP Xdebug",
-         "onAutoForward": "silent"
       }
    },
 
@@ -46,7 +49,7 @@
             // markdown (.md)
             "davidanson.vscode-markdownlint",
             "shd101wyy.markdown-preview-enhanced",
-            // typscript (.ts)
+            // typescript (.ts)
             "oven.bun-vscode",
             "dbaeumer.vscode-eslint",
             "ms-playwright.playwright",
@@ -67,7 +70,9 @@
          ],
 
          "settings": {
-            "php.validate.executablePath": "/usr/local/bin/php"
+            // The test image installs PHP from apt, so it lives in /usr/bin
+            // (the FrankenPHP images use /usr/local/bin instead).
+            "php.validate.executablePath": "/usr/bin/php"
          }
       }
    },

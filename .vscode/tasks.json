@@ -2,9 +2,8 @@
    // Named commands runnable via Ctrl+Shift+P → "Run Task".
    // "Lint: fix" is the default build task (Ctrl+Shift+B).
    //
-   // These all run inside the devcontainer, so they use the container's
-   // PHP/Composer — not the host's, which has a different PHP build and
-   // extension set entirely.
+   // Unless marked "Host-only", these run inside the devcontainer (the test
+   // container), so they use its PHP/Composer/Bun — not the host's.
    "version": "2.0.0",
    "tasks": [
       // ##########################################
@@ -44,6 +43,7 @@
             "panel": "shared"
          }
       },
+
       // ##########################################
       // ────────────────── Test ──────────────────
       // ##########################################
@@ -62,7 +62,8 @@
          }
       },
       {
-         // Needs "db + cache" running first — connects to the real db/cache, unlike "Test: unit".
+         // Connects to the real db/cache, unlike "Test: unit" — needs them
+         // running, and the test container on data_net to reach them.
          "label": "Test: integration",
          "type": "shell",
          "command": "vendor/bin/phpunit",
@@ -77,26 +78,25 @@
          }
       },
       {
-         // Host-only: run from a terminal not attached to the devcontainer
+         // The devcontainer IS the test container, so Playwright runs here
+         // directly, against web over test_net.
          "label": "Test: e2e",
          "type": "shell",
-         "command": "docker compose",
-         "args": [
-            "-f .docker/docker-compose.dev.yml",
-            "exec playwright",
-            "bun run test:e2e"
-         ],
+         "command": "bun run test:e2e",
          "problemMatcher": [],
          "presentation": {
             "reveal": "always",
             "panel": "shared"
          }
       },
+
       // ##########################################
       // ───────────── Static analyse ─────────────
       // ##########################################
       {
-         "label": "Static Analyse: Types",
+         // One PHPStan run covers types (level max), the PHPat architecture
+         // tests and ControllerActionRule — see .tools/phpstan.neon.
+         "label": "Static Analyse: Types + Architecture",
          "type": "shell",
          "command": "vendor/bin/phpstan",
          "args": [
@@ -123,25 +123,12 @@
             "panel": "shared"
          }
       },
-      {
-         "label": "Static Analyse: Architecture",
-         "type": "shell",
-         "command": "vendor/bin/phpstan",
-         "args": [
-            "analyse",
-            "--configuration=.tools/phpat.neon"
-         ],
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
+
       // ##########################################
       // ───────────────── Docker ─────────────────
       // ##########################################
-      // Host-only: run from a terminal not attached to the devcontainer
-      // docker-compose.dev.yml includes everything (web + db + cache + worker + playwright) — same file the devcontainer itself uses to launch.
+      // Host-only: run from a terminal not attached to the devcontainer.
+      // docker-compose.dev.yml includes everything (web + db + cache + worker + test) — same file the devcontainer itself uses to launch.
       {
          // Attached, not detached (-d) — streams all services' logs live.
          // Never completes on its own; Ctrl+C or "Docker: down" to stop.
@@ -189,10 +176,24 @@
          }
       },
       {
-         // console/ has no container of its own — it shares worker's,
-         // already-running image. Prompts for the command name/args each
-         // run rather than hardcoding one, since this is the general-purpose
-         // entrypoint for every console command (migrate, staff:create, ...).
+         // Host-only. Restarts the 2 dev main processes (bun watcher +
+         // FrankenPHP) inside the running web container without restarting
+         // the container — dev.start.sh auto-detects that FrankenPHP is
+         // already up and reloads instead of starting fresh.
+         "label": "Docker: restart dev server",
+         "type": "shell",
+         "command": "docker compose -f .docker/docker-compose.dev.yml exec web sh web/dev.start.sh",
+         "problemMatcher": [],
+         "presentation": {
+            "reveal": "always",
+            "panel": "shared"
+         }
+      },
+      {
+         // Host-only. console/ has no container of its own — it shares
+         // worker's, already-running image. Prompts for the command name/args
+         // each run rather than hardcoding one, since this is the
+         // general-purpose entrypoint for every console command.
          "label": "Console: run",
          "type": "shell",
          "command": "docker compose -f .docker/docker-compose.dev.yml exec worker php console/main.php ${input:consoleCommand}",
@@ -202,6 +203,7 @@
             "panel": "shared"
          }
       },
+
       // ###########################################
       // ─────────── Assets (Bun + Sass) ───────────
       // ###########################################
@@ -216,8 +218,8 @@
          }
       },
       {
-         // Never completes on its own — watches web/resources/{ts,scss}
-         // and rebuilds web/public/assets/ on change. Ctrl+C to stop.
+         // web's dev.start.sh already runs this watcher. Only use it when
+         // web isn't running, or two watchers will fight over public/assets.
          "label": "Assets: watch",
          "type": "shell",
          "command": "bun run dev",
@@ -251,23 +253,10 @@
             "panel": "shared"
          }
       },
+      
       // ###########################################
       // ──────────────── Composite ────────────────
       // ###########################################
-      {
-         // Restarts the 2 dev main processes (bun/sass watcher +
-         // FrankenPHP) inside the running container without restarting
-         // the container — dev.start.sh auto-detects that FrankenPHP is
-         // already up and reloads instead of starting fresh.
-         "label": "Restart dev server",
-         "type": "shell",
-         "command": "sh web/dev.start.sh",
-         "problemMatcher": [],
-         "presentation": {
-            "reveal": "always",
-            "panel": "shared"
-         }
-      },
       {
          // Matches what pre-push runs — "Test: integration" deliberately
          // excluded, same reasoning: it needs the stack running, and this
@@ -275,9 +264,8 @@
          "label": "Check: all",
          "dependsOn": [
             "Lint: check",
-            "Static Analyse: Types",
-            "Static Analyse: Layer",
-            "Static Analyse: Architecture",
+            "Static Analyse: Types + Architecture",
+            "Static Analyse: Layer"
          ],
          "dependsOrder": "sequence",
          "problemMatcher": []
@@ -313,11 +301,6 @@
       }
    ],
    "inputs": [
-      {
-         "id": "gitSwitchBranch",
-         "type": "promptString",
-         "description": "Branch to switch to"
-      },
       {
          "id": "consoleCommand",
          "type": "promptString",

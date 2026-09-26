@@ -1,7 +1,7 @@
 {
-   // .editorconfig is the cross-editor source of truth; these
-   // settings mirror it for VS Code specifically and add PSR-12
-   // formatter wiring that .editorconfig alone can't express.
+   // ─────────────── Editor ───────────────
+   // .editorconfig is the cross-editor source of truth; these mirror it
+   // for VS Code and add what .editorconfig can't express (formatters).
    "editor.insertSpaces": true,
    "editor.tabSize": 3,
    "editor.detectIndentation": false,
@@ -10,74 +10,63 @@
    "files.trimTrailingWhitespace": true,
    "files.insertFinalNewline": true,
    "files.eol": "\n",
-   // PSR-12 requires 4-space indentation — this is a spec requirement, not
-   // a preference, so PHP gets an explicit override of the 3-space default.
+
+   // ────────────── Languages ──────────────
+   // PSR-12 requires 4-space indentation for PHP.
    "[php]": {
       "editor.tabSize": 4,
       "editor.defaultFormatter": "junstyle.php-cs-fixer"
    },
-   // The Maintainance 5
-   "php-cs-fixer.executablePath": "/app/vendor/bin/php-cs-fixer",
-   "php-cs-fixer.config": "/app/.tools/.php-cs-fixer.dist.php",
-   "phpstan.binPath": "/app/vendor/bin/phpstan",
-   "phpstan.configFile": "/app/.tools/phpstan.neon",
-   "phpunit.command": "${php} ${phpargs} ${phpunit} ${phpunitargs}",
-   "phpunit.args": [
-      "--configuration=.tools/phpunit.xml.dist"
-   ],
-   "phpunit.paths": {
-      "${workspaceFolder}": "/app"
-   },
-   // Version-appropriate diagnostics/suggestions from Intelephense, matching
-   // the "php": "^8.5" constraint in composer.json.
-   "intelephense.environment.phpVersion": "8.5.0",
-   "intelephense.environment.includePaths": [
-      ".var/phpstan-src"
-   ],
-   "php.validate.executablePath": "../../usr/bin/php8.5",
-   // Markdown: preserve trailing whitespace (can encode intentional line
-   // breaks), matching the .editorconfig exception.
+   // Trailing whitespace can be an intentional line break in Markdown.
    "[markdown]": {
       "files.trimTrailingWhitespace": false
    },
-   // Dockerfile, YAML, and JSON already match the project default (3), but
-   // stated explicitly here so a future global user-settings change can't
-   // silently override them per-language.
-   "[dockerfile]": {
-      "editor.tabSize": 3
-   },
    "[yaml]": {
-      "editor.defaultFormatter": "ms-azuretools.vscode-containers",
-      "editor.tabSize": 3
-   },
-   "[json]": {
-      "editor.tabSize": 3
-   },
-   "[jsonc]": {
-      "editor.tabSize": 3
+      "editor.defaultFormatter": "ms-azuretools.vscode-containers"
    },
    "[shellscript]": {
-      "editor.defaultFormatter": "foxundermoon.shell-format",
-      "editor.tabSize": 3
+      "editor.defaultFormatter": "foxundermoon.shell-format"
    },
-   "eslint.validate": [
-      "typescript"
-   ],
+
+   // ─────────────── PHP tools ───────────────
+   "php-cs-fixer.executablePath": "/app/vendor/bin/php-cs-fixer",
+   "php-cs-fixer.config": "/app/.tools/.php-cs-fixer.dist.php",
+
+   "phpstan.binPath": "/app/vendor/bin/phpstan",
+   "phpstan.configFile": "/app/.tools/phpstan.neon",
+
+   "phpunit.command": "${php} ${phpargs} ${phpunit} ${phpunitargs}",
+   "phpunit.args": ["--configuration=.tools/phpunit.xml.dist"],
+   "phpunit.paths": { "${workspaceFolder}": "/app" },
+   // "Debug Test" starts this launch.json listener before running PHPUnit.
+   "phpunit.debuggerConfig": "Listen for Xdebug (web)",
+
+   // Matches "php": "^8.5" in composer.json.
+   "intelephense.environment.phpVersion": "8.5.0",
+   // PHPStan's classes only exist inside phpstan.phar; .tools/phpstan-src.php
+   // unpacks them here on container start so the editor can see them.
+   "intelephense.environment.includePaths": [".var/phpstan-src"],
+
+   // ─────────────── TypeScript ───────────────
+   "eslint.validate": ["typescript"],
+   // Relative to the workspace root (/app).
    "eslint.workingDirectories": [
-      {
-         "directory": "../web/resources/ts/",
-      },
-      {
-         "directory": "../web/test/e2e/",
-      }
+      { "directory": "web/resources/ts" },
+      { "directory": "web/test/e2e" }
    ],
-   // extend file icons for docker-compose.[xxx].yml & Caddyfile.[xxx] etc.
+
+   // ─────────────── Ports ───────────────
+   // Only ports listed in devcontainer.json's forwardPorts get forwarded;
+   // nothing is forwarded just because a process started listening.
+   "remote.autoForwardPorts": false,
+
+   // ─────────────── Icons ───────────────
+   // File icons for docker-compose.[xxx].yml & Caddyfile.[xxx].
    "material-icon-theme.files.associations": {
       "docker-compose.dev.yml": "docker",
       "docker-compose.e2e.yml": "docker",
       "Caddyfile.dev": "caddy",
       "Caddyfile.prod": "caddy",
       "phpat.neon": "phpstan"
-   },
-   "remote.autoForwardPortsFallback": 0
+   }
 }
