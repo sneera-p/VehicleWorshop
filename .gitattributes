@@ -1,0 +1,9 @@
+# Line endings are LF everywhere: in the repo and in every working copy,
+# on every OS. The containers read these files directly through a bind
+# mount, and Linux tools break on CRLF (see web/dev.start.sh).
+* text=auto eol=lf
+
+# Windows-only scripts are run by Windows, which expects CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
