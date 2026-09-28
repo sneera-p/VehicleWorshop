@@ -3,8 +3,49 @@
    "description": "Workshop management system for small-to-medium scale garages",
    "type": "project",
    "scripts": {
-      "post-install-cmd": ["@php .tools/phpstan-src.php"],
-      "post-update-cmd": ["@php .tools/phpstan-src.php"]
+      "post-install-cmd": "@php .tools/phpstan-src.php",
+      "post-update-cmd": "@php .tools/phpstan-src.php",
+      "reload:web": "frankenphp reload --config web/config/Caddyfile.prod",
+      "reload:web:dev": "frankenphp reload --config web/config/Caddyfile.dev",
+      "run:console": "@php console/main.php",
+      "lint": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php",
+      "lint:check": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff",
+      "test:unit": [
+         "Composer\\Config::disableProcessTimeout",
+         "phpunit --configuration=.tools/phpunit.xml.dist --testsuite=unit"
+      ],
+      "test:integration": [
+         "Composer\\Config::disableProcessTimeout",
+         "phpunit --configuration=.tools/phpunit.xml.dist --testsuite=integration"
+      ],
+      "test": [
+         "@test:unit",
+         "@test:integration"
+      ],
+      "analyse:types": "phpstan analyse --configuration=.tools/phpstan.neon",
+      "analyse:layer": "deptrac analyse --config-file=.tools/deptrac.php",
+      "analyse": [
+         "@analyse:types",
+         "@analyse:layer"
+      ],
+      "check": [
+         "@lint:check",
+         "@analyse"
+      ]
+   },
+   "scripts-descriptions": {
+      "reload:web": "Reload FrankenPHP's prod config without restarting (needs admin API)",
+      "reload:web:dev": "Reload FrankenPHP's dev config without restarting (needs admin API)",
+      "run:console": "Run a console command (worker container), e.g. composer run:console -- migrate",
+      "lint": "Fix code style",
+      "lint:check": "Check code style without changing files",
+      "test:unit": "Run unit tests",
+      "test:integration": "Run integration tests (needs db + cache)",
+      "test": "Run unit + integration tests",
+      "analyse:types": "PHPStan: types + architecture rules",
+      "analyse:layer": "Deptrac: layer dependencies",
+      "analyse": "Run all static analysis",
+      "check": "Style + static analysis (what pre-push runs)"
    },
    "require": {
       "php": "^8.5"
