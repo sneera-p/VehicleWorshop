@@ -8,21 +8,17 @@
 # ===============================
 FROM frankenphp AS base
 
-COPY --from=php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-COPY --from=composer /usr/bin/composer /usr/local/bin/composer
-
 # pdo_pgsql → Vehicle, Job, Appointment, Invoice, Supplier Bill entities
 # redis     → Valkey pub/sub (notifications, SSE streams, session tokens)
 # gd        → Vehicle Damage.Picture, User.Picture
-# iconv     → required by symfony/polyfill-mbstring (php-cs-fixer dep)
-RUN install-php-extensions \
-   gd \
-   iconv \
-   pdo_pgsql \
-   redis-6.3.0
+RUN --mount=type=bind,from=php-extension-installer,source=/usr/bin/install-php-extensions,target=/usr/local/bin/install-php-extensions \
+   IPE_GD_WITHOUTAVIF=1 \
+   install-php-extensions \
+      gd \
+      pdo_pgsql \
+      redis-6.3.0
 
 WORKDIR /app
-ENV COMPOSER_ALLOW_SUPERUSER=1
 EXPOSE 80
 
 
@@ -31,6 +27,11 @@ EXPOSE 80
 # Development
 # ===============================
 FROM base AS dev
+
+COPY --from=php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # netcat: port/connectivity checks. libstdc++/libgcc: the bun binary needs them.
 RUN apk add --no-cache \
@@ -94,18 +95,22 @@ COPY --exclude=worker \
    --exclude=web/resources/scss \
    --exclude=web/resources/build*.ts \
    --exclude=**/test \
-   --exclude=package.json \
+   --exclude=package*.json \
    --exclude=bun.lock* \
    --exclude=tsconfig.json \
+   --exclude=**/xdebug.ini \
    --exclude=.tools \
    . .
 
-RUN composer install \
-   --no-dev \
-   --no-scripts \
-   --prefer-dist \
-   --optimize-autoloader \
-   && rm -rf "$(composer config cache-dir)"
+RUN --mount=type=bind,from=composer,source=/usr/bin/composer,target=/usr/local/bin/composer \
+   COMPOSER_ALLOW_SUPERUSER=1 \
+   composer install \
+      --no-dev \
+      --no-scripts \
+      --prefer-dist \
+      --optimize-autoloader \
+   && rm -rf "$(COMPOSER_ALLOW_SUPERUSER=1 composer config cache-dir)"  \
+   && rm composer.json composer.lock
 
 COPY --from=assets /app/web/public/assets ./web/public/assets
 

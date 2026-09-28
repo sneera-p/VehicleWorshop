@@ -5,8 +5,7 @@
    "scripts": {
       "post-install-cmd": "@php .tools/phpstan-src.php",
       "post-update-cmd": "@php .tools/phpstan-src.php",
-      "reload:web": "frankenphp reload --config web/config/Caddyfile.prod",
-      "reload:web:dev": "frankenphp reload --config web/config/Caddyfile.dev",
+      "reload:web": "frankenphp reload --config web/config/Caddyfile.dev",
       "run:console": "@php console/main.php",
       "lint": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php",
       "lint:check": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff",

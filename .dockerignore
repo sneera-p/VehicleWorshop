@@ -9,7 +9,6 @@
 .devcontainer/
 .docker/
 .githooks/
-.tools/
 .var/
 .vscode/
 docs/
