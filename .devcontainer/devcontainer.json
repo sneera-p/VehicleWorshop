@@ -72,7 +72,14 @@
          "settings": {
             // The test image installs PHP from apt, so it lives in /usr/bin
             // (the FrankenPHP images use /usr/local/bin instead).
-            "php.validate.executablePath": "/usr/bin/php"
+            "php.validate.executablePath": "/usr/bin/php",
+
+            "terminal.integrated.defaultProfile.linux": "fish",
+            "terminal.integrated.profiles.linux": {
+               "fish": {
+                  "path": "/usr/bin/fish"
+               }
+            }
          }
       }
    },
