@@ -51,5 +51,14 @@
             "-dxdebug.start_with_request=yes"
          ]
       }
+   ],
+   "compounds": [
+      {
+         "name": "Listen for Xdebug (web + worker)",
+         "configurations": [
+            "Listen for Xdebug (web)",
+            "Listen for Xdebug (worker)"
+         ]
+      }
    ]
 }

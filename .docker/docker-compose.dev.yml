@@ -3,7 +3,7 @@ name: VehicleWorkshop
 include:
    - ./docker-compose.test.yml
 
-# Dev stack: prod stack (web + db + cache) plus test, dev build
+# Dev stack: prod stack (web + db + cache + worker) plus test, dev build
 # target, and source bind-mounts. devcontainer.json points here.
 
 services:

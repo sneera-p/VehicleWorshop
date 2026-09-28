@@ -1,25 +1,24 @@
 # syntax=docker/dockerfile:1
-
-ARG PHP_IMAGE=php:8.5.9-cli-trixie@sha256:0e17ef0527f296b85bfe4cfb5219b29cafc37224857ed73d28628ea142930ac8
+# worker/Dockerfile — needs named contexts: php, composer, php-extension-installer
+# (see .docker/docker-compose.yml)
 
 
 # ===============================
 # Base PHP + Extensions (Shared)
 # ===============================
-FROM ${PHP_IMAGE} AS base
+FROM php AS base
 
-COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+COPY --from=php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
 RUN install-php-extensions \
-   opcache \
    iconv \
    pdo_pgsql \
-   redis-6.3.0 \
-   @composer-2.10.3
+   redis-6.3.0
 
 WORKDIR /app
-
 ENV COMPOSER_ALLOW_SUPERUSER=1
+
 
 
 # ===============================
@@ -27,30 +26,23 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 # ===============================
 FROM base AS dev
 
+# Xdebug: dev only. Idle until triggered.
 RUN install-php-extensions xdebug
-RUN { \
-   echo "xdebug.mode=debug,develop"; \
-   echo "xdebug.start_with_request=trigger"; \
-   echo "xdebug.client_host=localhost"; \
-   echo "xdebug.client_port=9003"; \
-   echo "xdebug.log_level=0"; \
-   } > "${PHP_INI_DIR}/conf.d/99-xdebug.ini"
+COPY worker/xdebug.ini ${PHP_INI_DIR}/conf.d/99-xdebug.ini
 
-# web/ is excluded — no HTTP surface, no frontend assets, nothing this
-# container will ever run. console/ is intentionally NOT excluded — it
-# shares this image and runs via
-# `docker compose exec worker php console/console <command>`, never its
-# own container.
+# No web/: nothing here serves HTTP. console/ stays — it runs from this
+# image via `docker compose exec worker php console/console <command>`.
 COPY --exclude=web . .
 
-# --no-dev is deliberately absent here — dev needs PHPUnit, php-cs-fixer,
-# etc. present. No --optimize-autoloader either, since source changes
-# should be picked up live via the bind mount, not baked into a static map.
+# With dev deps (PHPUnit, php-cs-fixer). No --optimize-autoloader:
+# the bind mount should pick up new classes live.
 RUN composer install \
    --prefer-dist \
-   --no-scripts
+   --no-scripts \
+   && rm -rf "$(composer config cache-dir)"
 
 CMD ["php", "worker/main.php"]
+
 
 
 # ===============================
@@ -58,10 +50,13 @@ CMD ["php", "worker/main.php"]
 # ===============================
 FROM base AS prod
 
+# Runtime only: no web, tests, or tooling.
 COPY --exclude=web \
    --exclude=**/test \
    --exclude=package.json \
    --exclude=bun.lock* \
+   --exclude=tsconfig.json \
+   --exclude=.tools \
    . .
 
 RUN composer install \

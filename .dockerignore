@@ -7,15 +7,15 @@
 
 
 .devcontainer/
-.githooks/
-.vscode/
 .docker/
+.githooks/
 .tools/
-docs/
-vendor/
-node_modules/
-public/assets/
 .var/
+.vscode/
+docs/
+node_modules/
+vendor/
+**/public/assets/
 
 README.md
 .editorconfig

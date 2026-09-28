@@ -1,9 +1,33 @@
+// tsconfig.json
 {
-   // This is here to avoid the linter from using one tsconfig.json as the reference for the vscode extension
+   "compilerOptions": {
+      "composite": true,
+      "noEmit": false,
+      "target": "ESNext",
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "moduleDetection": "force",
+      "types": [
+         "bun"
+      ],
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "noImplicitOverride": true,
+      "noFallthroughCasesInSwitch": true,
+      "allowJs": true,
+      "esModuleInterop": true,
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "skipLibCheck": true,
+      "verbatimModuleSyntax": true
+   },
    "files": [],
    "references": [
       {
-         "path": "./web"
+         "path": "web/resources/ts"
+      },
+      {
+         "path": "web/test/e2e"
       }
    ]
 }
