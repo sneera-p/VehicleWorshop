@@ -22,5 +22,12 @@ return [
         'controller' => ['class' => DummyController::class, 'method' => 'dummy'],
         'middleware' => [],
         'context' => [],
+    ],
+    [
+        'method' => HttpMethods::GET,
+        'path' => '/greeting',
+        'controller' => ['class' => DummyController::class, 'method' => 'greeting'],
+        'middleware' => [],
+        'context' => [],
     ]
 ];

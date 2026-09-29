@@ -73,23 +73,15 @@ abstract class ControllerBase implements IController
      * writes one event with it, and the event goes straight to the browser.
      * The stream ends when $source returns.
      *
-     * @param Closure(Closure(string $event, string $data): void $emit): void $source
+     * @param Closure(Closure(string $event, array<string, mixed> $data): void $emit): void $source
      */
     protected static function sse(Closure $source): Response
     {
         return Response::stream(
             static function () use ($source): void {
-                $source(static function (string $event, string $data): void {
-                    echo "event: {$event}\n";
-
-                    // A newline inside data would end the event early.
-                    // So each line gets its own "data:" prefix, and the
-                    // browser joins them back together.
-                    foreach (explode("\n", $data) as $line) {
-                        echo "data: {$line}\n";
-                    }
-
-                    echo "\n"; // a blank line ends the event
+                $source(static function (string $event, array $data): void {
+                    $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    echo "event: {$event}\ndata: {$json}\n\n";
                     flush();
                 });
             },

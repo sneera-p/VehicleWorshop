@@ -209,15 +209,18 @@ final class ControllerBaseTest extends TestCase
     }
 
     /**
-     * @param list<array{string, string}> $events
+     * @param list<array{string, array<array-key, mixed>}> $events
      */
     #[Test]
-    #[TestWith([[], ''])]
-    #[TestWith([[['job.updated', '{"id":1}']], "event: job.updated\ndata: {\"id\":1}\n\n"])]
-    #[TestWith([[['a', '1'], ['b', '2']], "event: a\ndata: 1\n\nevent: b\ndata: 2\n\n"])]
-    #[TestWith([[['note', "line1\nline2"]], "event: note\ndata: line1\ndata: line2\n\n"])]
-    #[TestWith([[['note', '']], "event: note\ndata: \n\n"])]
-    public function sse_frames_each_emitted_event(array $events, string $expected): void
+    #[TestWith([[], ''])]                                                                          // no events, no output
+    #[TestWith([[['job.updated', ['id' => 1]]], "event: job.updated\ndata: {\"id\":1}\n\n"])]
+    #[TestWith([[['a', ['n' => 1]], ['b', ['n' => 2]]], "event: a\ndata: {\"n\":1}\n\nevent: b\ndata: {\"n\":2}\n\n"])]
+    #[TestWith([[['note', ['text' => "line1\nline2"]]], "event: note\ndata: {\"text\":\"line1\\nline2\"}\n\n"])] // newline escaped, stays one line
+    #[TestWith([[['note', ['text' => "a\r\nb"]]], "event: note\ndata: {\"text\":\"a\\r\\nb\"}\n\n"])]          // \r escaped too
+    #[TestWith([[['note', []]], "event: note\ndata: []\n\n"])]                                     // empty array is a JSON list
+    #[TestWith([[['link', ['url' => '/jobs/1', 'name' => 'රසීද']]], "event: link\ndata: {\"url\":\"/jobs/1\",\"name\":\"රසීද\"}\n\n"])] // slashes and unicode unescaped
+    #[TestWith([[['note', ['s' => "a\u{2028}b"]]], "event: note\ndata: {\"s\":\"a\\u2028b\"}\n\n"])]      // line terminators stay escaped
+    public function sse_frames_each_emitted_event_as_json(array $events, string $expected): void
     {
         $response = new ControllerBaseStub()->callSse(static function (Closure $emit) use ($events): void {
             foreach ($events as [$event, $data]) {
@@ -226,5 +229,22 @@ final class ControllerBaseTest extends TestCase
         });
 
         $this->assertSame($expected, self::body($response));
+    }
+
+    #[Test]
+    public function sse_throws_on_data_json_cannot_hold(): void
+    {
+        $response = new ControllerBaseStub()->callSse(static function (Closure $emit): void {
+            $emit('bad', ['text' => "\xB1\x31"]); // invalid UTF-8
+        });
+
+        $this->expectException(JsonException::class);
+
+        ob_start();
+        try {
+            $response->send();
+        } finally {
+            ob_end_clean(); // close the buffer even when send() throws, or PHPUnit flags the test as risky
+        }
     }
 }
