@@ -18,6 +18,17 @@ RUN --mount=type=bind,from=php-extension-installer,source=/usr/bin/install-php-e
       pdo_pgsql \
       redis-6.3.0
 
+# CBOR extension: not packaged for Alpine, so build it from source.
+RUN apk add --no-cache --virtual .cbor-build $PHPIZE_DEPS \
+   && mkdir -p /tmp/cbor \
+   && curl -fsSL "https://codeload.github.com/ranvis/php-ext-cbor/tar.gz/refs/tags/v0.4.11" \
+      | tar -xz -C /tmp/cbor --strip-components=1 \
+   && cd /tmp/cbor \
+   && phpize && ./configure --enable-cbor && make -j"$(nproc)" && make install \
+   && docker-php-ext-enable cbor \
+   && cd / && rm -rf /tmp/cbor \
+   && apk del .cbor-build
+
 WORKDIR /app
 EXPOSE 80
 

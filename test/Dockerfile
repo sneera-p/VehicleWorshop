@@ -28,6 +28,24 @@ RUN apt-get update \
    php8.5-zip \
    && rm -rf /var/lib/apt/lists/*
 
+# CBOR extension: not packaged for Ubuntu, so build it from source.
+RUN apt-get update \
+   && apt-get install -y --no-install-recommends php8.5-dev build-essential autoconf \
+   && mkdir -p /tmp/cbor \
+   && curl -fsSL "https://codeload.github.com/ranvis/php-ext-cbor/tar.gz/refs/tags/v0.4.11" \
+      | tar -xz -C /tmp/cbor --strip-components=1 \
+   && cd /tmp/cbor \
+   && phpize8.5 \
+   && ./configure --enable-cbor --with-php-config=php-config8.5 \
+   && make -j"$(nproc)" \
+   && make install \
+   && echo 'extension=cbor.so' > /etc/php/8.5/mods-available/cbor.ini \
+   && phpenmod -v 8.5 cbor \
+   && php -r 'exit(function_exists("cbor_encode") ? 0 : 1);' \
+   && cd / && rm -rf /tmp/cbor \
+   && apt-get purge -y --auto-remove php8.5-dev build-essential autoconf \
+   && rm -rf /var/lib/apt/lists/*
+
 # Composer and Bun: single files from their pinned images.
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun

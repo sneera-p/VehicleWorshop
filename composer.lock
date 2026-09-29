@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "da0ad02fa2aa9e8ff47313a64f773977",
+    "content-hash": "2ab06c8ebde6a5a6b1aea66926b570d5",
     "packages": [],
     "packages-dev": [
         {
@@ -1942,6 +1942,47 @@
                 "source": "https://github.com/php-fig/log/tree/3.0.2"
             },
             "time": "2024-09-11T13:17:53+00:00"
+        },
+        {
+            "name": "ranvis/ext-cbor-stub",
+            "version": "v0.4.11",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ranvis/php-ext-cbor-stub.git",
+                "reference": "b147ea42fa58941db05f79b66b8e4340aa95b69e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ranvis/php-ext-cbor-stub/zipball/b147ea42fa58941db05f79b66b8e4340aa95b69e",
+                "reference": "b147ea42fa58941db05f79b66b8e4340aa95b69e",
+                "shasum": ""
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Cbor\\": "stubs/cbor/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-2-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "SATO Kentaro",
+                    "email": "kentaro@ranvis.com"
+                }
+            ],
+            "description": "Stub files for CBOR codec extension",
+            "homepage": "https://github.com/ranvis/php-ext-cbor-stub/blob/master/README.md",
+            "keywords": [
+                "cbor"
+            ],
+            "support": {
+                "issues": "https://github.com/ranvis/php-ext-cbor-stub/issues",
+                "source": "https://github.com/ranvis/php-ext-cbor-stub/tree/v0.4.11"
+            },
+            "time": "2024-12-23T05:16:30+00:00"
         },
         {
             "name": "react/cache",

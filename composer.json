@@ -6,6 +6,7 @@
       "post-install-cmd": "@php .tools/phpstan-src.php",
       "post-update-cmd": "@php .tools/phpstan-src.php",
       "reload:web": "frankenphp reload --config web/config/Caddyfile.dev",
+      "reload:worker": "kill -TERM 1",
       "run:console": "@php console/main.php",
       "lint": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php",
       "lint:check": "php-cs-fixer fix --config=.tools/.php-cs-fixer.dist.php --dry-run --diff",
@@ -54,7 +55,8 @@
       "friendsofphp/php-cs-fixer": "^3.95",
       "phpat/phpat": "^0.12.4",
       "phpstan/phpstan": "^2.2",
-      "phpunit/phpunit": "^13.3"
+      "phpunit/phpunit": "^13.3",
+      "ranvis/ext-cbor-stub": "0.4.11"
    },
    "license": "proprietary",
    "autoload": {
