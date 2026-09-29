@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Test\Stubs;
 
-use Closure;
 use Vwork\Web\Controllers\ControllerAction;
-use Vwork\Web\Controllers\ControllerBase;
-use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
 
@@ -17,7 +14,7 @@ use Vwork\Web\Http\Response;
  * index() is a valid action. The next four each break one action rule.
  * The call* methods make ControllerBase's protected helpers public.
  */
-final class ControllerStub extends ControllerBase
+final class ControllerStub extends ControllerBaseStub
 {
     /** @param array<string, mixed> $attr */
     #[ControllerAction]
@@ -52,32 +49,5 @@ final class ControllerStub extends ControllerBase
     public function wrongReturn(Request $request, array $attr): string
     {
         return '';
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function callView(string $template, array $data = [], HttpStatus $status = HttpStatus::Ok): Response
-    {
-        return $this->view($template, $data, $status);
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @param list<string> $accept
-     */
-    public function callPayload(array $data, array $accept = [], HttpStatus $status = HttpStatus::Ok): Response
-    {
-        return $this->payload($data, $accept, $status);
-    }
-
-    public function callSse(Closure $source): Response
-    {
-        return $this->sse($source);
-    }
-
-    public function callFile(string $path, string $name): Response
-    {
-        return $this->file($path, $name);
     }
 }

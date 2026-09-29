@@ -13,32 +13,27 @@ use Vwork\Web\Http\Response;
  * ControllerBase's helpers are protected. This stub makes them public
  * so tests can call them directly.
  */
-final class ControllerBaseStub extends ControllerBase
+class ControllerBaseStub extends ControllerBase
 {
     /**
      * @param array<string, mixed> $data
      */
-    public function callView(string $template, array $data = [], HttpStatus $status = HttpStatus::Ok): Response
+    public static function callView(string $template, array $data = [], ?string $layout = null, HttpStatus $status = HttpStatus::Ok): Response
     {
-        return $this->view($template, $data, $status);
+        return self::view($template, $data, $layout, $status);
     }
 
     /**
      * @param array<string, mixed> $data
      * @param list<string> $accept
      */
-    public function callPayload(array $data, array $accept = [], HttpStatus $status = HttpStatus::Ok): Response
+    public static function callPayload(array $data, array $accept = [], HttpStatus $status = HttpStatus::Ok): Response
     {
-        return $this->payload($data, $accept, $status);
+        return self::payload($data, $accept, $status);
     }
 
-    public function callSse(Closure $source): Response
+    public static function callSse(Closure $source): Response
     {
-        return $this->sse($source);
-    }
-
-    public function callFile(string $path, string $name): Response
-    {
-        return $this->file($path, $name);
+        return self::sse($source);
     }
 }

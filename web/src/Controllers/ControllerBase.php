@@ -21,13 +21,32 @@ use Vwork\Web\Utils\View;
 abstract class ControllerBase implements IController
 {
     /**
-     * Renders a template into an HTML page.
+     * Renders $template into an HTML response, optionally wrapped in $layout.
      *
-     * @param array<string, mixed> $data becomes the template's local variables
+     * The template receives all of $data as local variables.
+     *
+     * The layout receives only two:
+     *  - 'content' (the rendered template)
+     *  - 'title' (defaults to 'No Title')
+     *
+     * @param string $template - view to render, relative to VIEW_PATH
+     * @param array<string, mixed> $data - the template's local variables.
+     *     ('title', if present, is also passed to the layout)
+     * @param ?string $layout - wrapping view; must echo $content and $title.
+     *     (null sends the template on its own)
      */
-    protected function view(string $template, array $data = [], HttpStatus $status = HttpStatus::Ok): Response
+    protected static function view(string $template, array $data = [], ?string $layout = null, HttpStatus $status = HttpStatus::Ok): Response
     {
-        return Response::html(View::render($template, $data), $status);
+        $html = View::render($template, $data);
+
+        if ($layout !== null) {
+            $html = View::render($layout, [
+                'content' => $html,
+                'title' => $data['title'] ?? 'No Title',
+            ]);
+        }
+
+        return Response::html($html, $status);
     }
 
     /**
@@ -36,7 +55,7 @@ abstract class ControllerBase implements IController
      * @param array<string, mixed> $data
      * @param list<string> $accept
      */
-    protected function payload(array $data, array $accept, HttpStatus $status = HttpStatus::Ok): Response
+    protected static function payload(array $data, array $accept, HttpStatus $status = HttpStatus::Ok): Response
     {
         $response = match (self::negotiatePayloadType($accept)) {
             'application/json' => Response::json($data, $status),
@@ -56,7 +75,7 @@ abstract class ControllerBase implements IController
      *
      * @param Closure(Closure(string $event, string $data): void $emit): void $source
      */
-    protected function sse(Closure $source): Response
+    protected static function sse(Closure $source): Response
     {
         return Response::stream(
             static function () use ($source): void {
@@ -80,14 +99,6 @@ abstract class ControllerBase implements IController
                 HttpHeaders::XAccelBuffering->value => ['no'],
             ],
         );
-    }
-
-    /**
-     * Sends a file from disk as a download named $name.
-     */
-    protected function file(string $path, string $name): Response
-    {
-        return Response::file($path, $name);
     }
 
 

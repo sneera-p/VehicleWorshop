@@ -44,28 +44,46 @@ final class ControllerBaseTest extends TestCase
     }
 
     #[Test]
-    public function view_renders_the_template_as_html(): void
+    public function view_wraps_the_template_in_the_layout(): void
     {
-        $response = new ControllerBaseStub()->callView('vars', ['name' => 'Sneze', 'count' => 3]);
+        $response = new ControllerBaseStub()->callView('vars', ['name' => 'Sneze', 'count' => 3, 'title' => 'Jobs'], 'layout');
 
-        $this->assertSame(HttpStatus::Ok, $response->status);
-        $this->assertSame(['Content-Type' => ['text/html; charset=utf-8']], $response->headers->list);
-        $this->assertSame("Sneze has 3 jobs\n", self::body($response));
+        $this->assertSame(
+            "<title>Jobs</title>\n<main>Sneze has 3 jobs\n</main>\nisolated",
+            self::body($response),
+        );
     }
 
     #[Test]
-    public function view_uses_the_given_status(): void
+    public function view_falls_back_to_a_default_title(): void
     {
-        $response = new ControllerBaseStub()->callView('hello', [], HttpStatus::NotFound);
+        $response = new ControllerBaseStub()->callView('hello', [], 'layout');
+
+        $this->assertStringStartsWith('<title>No Title</title>', self::body($response));
+    }
+
+    #[Test]
+    public function view_passes_only_content_and_title_to_the_layout(): void
+    {
+        $response = new ControllerBaseStub()->callView('vars', ['name' => 'Sneze', 'count' => 3], 'layout');
+
+        $this->assertStringEndsWith('isolated', self::body($response));
+    }
+
+    #[Test]
+    public function view_uses_the_given_status_with_a_layout(): void
+    {
+        $response = new ControllerBaseStub()->callView('hello', [], 'layout', HttpStatus::NotFound);
 
         $this->assertSame(HttpStatus::NotFound, $response->status);
+        $this->assertSame(['Content-Type' => ['text/html; charset=utf-8']], $response->headers->list);
     }
 
     #[Test]
-    public function view_throws_for_a_missing_template(): void
+    public function view_throws_for_a_missing_layout(): void
     {
         $this->expectException(WebError::class);
-        new ControllerBaseStub()->callView('does_not_exist');
+        new ControllerBaseStub()->callView('hello', [], 'does_not_exist');
     }
 
     private const array JSON = ['Content-Type' => ['application/json; charset=utf-8'], 'Vary' => ['Accept']];
@@ -208,21 +226,5 @@ final class ControllerBaseTest extends TestCase
         });
 
         $this->assertSame($expected, self::body($response));
-    }
-
-    #[Test]
-    public function file_sends_the_file_as_a_download(): void
-    {
-        $path = (string) tempnam(sys_get_temp_dir(), 'vwork_');
-        file_put_contents($path, 'contents');
-
-        try {
-            $response = new ControllerBaseStub()->callFile($path, 'invoice.pdf');
-
-            $this->assertSame(['attachment; filename="invoice.pdf"; filename*=UTF-8\'\'invoice.pdf'], $response->headers->list['Content-Disposition']);
-            $this->assertSame('contents', self::body($response));
-        } finally {
-            unlink($path);
-        }
     }
 }

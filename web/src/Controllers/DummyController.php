@@ -21,4 +21,11 @@ final class DummyController extends ControllerBase
     {
         return Response::text('Hello');
     }
+
+    /** @param array<string, mixed> $attr */
+    #[ControllerAction]
+    public function dummy(Request $req, array $attr): Response
+    {
+        return self::view('dummy', [ 'title' => 'Dummy Page', 'message' => 'Hello Sailor!' ], 'layouts/main');
+    }
 }

@@ -16,4 +16,11 @@ return [
         'middleware' => [],
         'context' => [],
     ],
+    [
+        'method' => HttpMethods::GET,
+        'path' => '/dummy',
+        'controller' => ['class' => DummyController::class, 'method' => 'dummy'],
+        'middleware' => [],
+        'context' => [],
+    ]
 ];
