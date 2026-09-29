@@ -36,13 +36,10 @@ final class DummyController extends ControllerBase
     #[ControllerAction]
     public function greeting(Request $req, array $attr): Response
     {
-        return self::sse(static function (Closure $emit) {
-
-            $count = 1;
-            // @phpstan-ignore while.alwaysTrue
-            while (true) {
-                $emit('dummy', ['message' => 'Hello There! ~Obi-Wan Kenobi']);
-                $count++;
+        return self::sse(static function (Closure $emit): void {
+            while (connection_aborted() === 0) {
+                $token = bin2hex(random_bytes(8));
+                $emit('dummy', ['message' => $token]);
                 sleep(2);
             }
         });
