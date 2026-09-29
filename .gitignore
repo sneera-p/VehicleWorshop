@@ -6,6 +6,7 @@ node_modules/
 **/.env
 **/.env.*
 !.docker/.env
+!.env.example
 *.pem
 *.key
 *.crt
@@ -15,7 +16,7 @@ node_modules/
 /tmp/
 *.cache
 *.log
-web/public/assets/
+**/public/assets/
 
 # IDE & Editor
 *.swp

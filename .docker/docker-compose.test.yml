@@ -1,0 +1,71 @@
+name: VehicleWorkshop
+
+include:
+   - ./docker-compose.yml
+
+# The prod stack, plus a test container that can reach all of it.
+#
+#   docker compose -f .docker/docker-compose.test.yml up
+#
+# Then run any suite from inside it:
+#   docker compose exec test vendor/bin/phpunit --testsuite unit
+#   docker compose exec test vendor/bin/phpunit --testsuite integration
+#   docker compose exec test bun playwright test:web
+#
+# Tests are baked into the image here. The dev file mounts source instead,
+# so you can edit without rebuilding.
+#
+# test sits on two networks:
+#   test_net — to reach web, for e2e.
+#   data_net — to reach db and cache directly, for integration tests.
+# Unit tests need neither. If one does, it's really an integration test.
+
+services:
+   web:
+      networks:
+         test_net:
+            # Chromium won't open single-word hostnames like "web" — it
+            # treats them as searches. So web also answers to "web.local".
+            aliases:
+               - web.local
+
+   test:
+      build:
+         context: ..
+         dockerfile: ./test/Dockerfile
+         target: test
+         args:
+            PLAYWRIGHT_IMAGE: ${PLAYWRIGHT_IMAGE:?PLAYWRIGHT_IMAGE not in .env}
+         additional_contexts:
+            playwright: docker-image://${PLAYWRIGHT_IMAGE:?PLAYWRIGHT_IMAGE not in .env}
+            bun:        docker-image://${BUN_GLIBC_IMAGE:?BUN_GLIBC_IMAGE not in .env}
+            composer:   docker-image://${COMPOSER_IMAGE:?COMPOSER_IMAGE not in .env}
+      working_dir: /app
+      init: true
+      shm_size: "512mb"
+      environment:
+         BASE_URL: http://web.local
+         # For integration tests only.
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+      # Wait until everything is actually up, not just started.
+      depends_on:
+         web:
+            condition: service_healthy
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      networks:
+         - test_net
+         - data_net
+
+networks:
+   test_net:
+      driver: bridge

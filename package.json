@@ -2,13 +2,21 @@
    "name": "vwork",
    "private": true,
    "type": "module",
-   "workspaces": [
-      "web"
-   ],
    "scripts": {
-      "build": "bun run --filter vwork-web build",
-      "dev": "bun run --filter vwork-web dev",
-      "typecheck": "bun run --filter vwork-web typecheck",
-      "test:e2e": "bun run --filter vwork-web test:e2e"
+      "build:web": "bun run ./web/resources/build.config.ts",
+      "dev:web": "bun run ./web/resources/build.config.ts --dev --watch",
+      "typecheck:web": "tsc --build --noEmit",
+      "test:web": "playwright test --config=./web/test/e2e/playwright.config.ts"
+   },
+   "devDependencies": {
+      "@playwright/test": "1.63.0",
+      "@types/bun": "^1.4.2",
+      "@types/node": "^26.6.3",
+      "sass": "~1.105.0",
+      "tailwindcss": "~4.3.0",
+      "typescript": "~7.0.0"
+   },
+   "dependencies": {
+      "lodash": "~4.18.0"
    }
 }

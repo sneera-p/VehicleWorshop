@@ -1,5 +1,6 @@
+// web/resources/ts/tsconfig.json
 {
-   "extends": "../../tsconfig.json",
+   "extends": "../../../tsconfig.json",
    "compilerOptions": {
       "composite": true,
       "lib": [
@@ -7,6 +8,7 @@
          "DOM",
          "DOM.Iterable"
       ],
+      "types": [],
       "paths": {
          "@/*": [
             "./*"

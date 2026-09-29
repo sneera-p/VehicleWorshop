@@ -1,6 +1,6 @@
 name: VehicleWorkshop
 
-# Production stack: web + db + cache.
+# Production stack: web + db + cache + worker.
 # `docker compose -f .docker/docker-compose.yml up`
 #
 # Networks:
@@ -13,10 +13,53 @@ services:
          context: ..
          dockerfile: ./web/Dockerfile
          target: prod
+         additional_contexts:
+            bun: docker-image://${BUN_IMAGE:?BUN_IMAGE not in .env}
+            frankenphp: docker-image://${FRANKENPHP_IMAGE:?FRANKENPHP_IMAGE not in .env}
+            composer:   docker-image://${COMPOSER_IMAGE:?COMPOSER_IMAGE not in .env}
+            php-extension-installer: docker-image://${PHP_EXTENSION_INSTALLER_IMAGE:?PHP_EXTENSION_INSTALLER_IMAGE not in .env}
       restart: unless-stopped
       ports:
          - "80:80"
          - "443:443"
+      environment:
+         DB_HOST: db
+         DB_PORT: "5432"
+         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
+         DB_USER: ${DB_USER:?DB_USER not in .env}
+         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
+         CACHE_HOST: cache
+         CACHE_PORT: "6379"
+         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+         VIEW_PATH: ${VIEW_PATH:?VIEW_PATH not in .env}
+         CSRF_KEY: ${CSRF_KEY:?CSRF_KEY not in .env}
+      depends_on:
+         db:
+            condition: service_healthy
+         cache:
+            condition: service_healthy
+      healthcheck:
+         # The base image's own healthcheck curls :2019 (FrankenPHP's admin
+         # API), which the Caddyfile disables — always fails. Check the
+         # actual web port instead.
+         test: [ "CMD-SHELL", "wget -qO- http://localhost:80/hello || exit 1" ]
+         interval: 5s
+         timeout: 5s
+         retries: 5
+      networks:
+         - web_net
+         - data_net
+
+   worker:
+      build:
+         context: ..
+         dockerfile: ./worker/Dockerfile
+         target: prod
+         additional_contexts:
+            php: docker-image://${PHP_IMAGE:?PHP_IMAGE not in .env}
+            composer:   docker-image://${COMPOSER_IMAGE:?COMPOSER_IMAGE not in .env}
+            php-extension-installer: docker-image://${PHP_EXTENSION_INSTALLER_IMAGE:?PHP_EXTENSION_INSTALLER_IMAGE not in .env}
+      restart: unless-stopped
       environment:
          DB_HOST: db
          DB_PORT: "5432"
@@ -31,16 +74,7 @@ services:
             condition: service_healthy
          cache:
             condition: service_healthy
-      healthcheck:
-         # The base image's own healthcheck curls :2019 (FrankenPHP's admin
-         # API), which the Caddyfile disables — always fails. Check the
-         # actual web port instead.
-         test: [ "CMD-SHELL", "curl -f http://localhost:80/ || exit 1" ]
-         interval: 5s
-         timeout: 5s
-         retries: 5
       networks:
-         - web_net
          - data_net
 
    db:
@@ -72,29 +106,6 @@ services:
          interval: 5s
          timeout: 5s
          retries: 5
-      networks:
-         - data_net
-
-   worker:
-      build:
-         context: ..
-         dockerfile: ./worker/Dockerfile
-         target: prod
-      restart: unless-stopped
-      environment:
-         DB_HOST: db
-         DB_PORT: "5432"
-         DB_NAME: ${DB_NAME:?DB_NAME not in .env}
-         DB_USER: ${DB_USER:?DB_USER not in .env}
-         DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not in .env}
-         CACHE_HOST: cache
-         CACHE_PORT: "6379"
-         CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
-      depends_on:
-         db:
-            condition: service_healthy
-         cache:
-            condition: service_healthy
       networks:
          - data_net
 

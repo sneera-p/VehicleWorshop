@@ -20,7 +20,7 @@ use Throwable;
  * in the same category as TypeError/DivisionByZeroError — failures that
  * indicate broken code, not conditions a caller is expected to plan around.
  */
-abstract class VworkError extends Error
+class VworkError extends Error
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {

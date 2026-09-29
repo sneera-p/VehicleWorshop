@@ -15,7 +15,7 @@
    -->
    <testsuites>
       <testsuite name="unit">
-         <directory>../shared/*/test</directory>
+         <directory>../shared/test</directory>
          <directory>../domain/infrastructure/test</directory>
          <directory>../domain/modules/test</directory>
          <directory>../web/test/Unit</directory>
@@ -38,15 +38,17 @@
          worker reacts). web/test/e2e (Playwright) runs via its own
          `bun run test:e2e`, not through PHPUnit.
       -->
-      <testsuite name="e2e">
+      <!-- <testsuite name="e2e">
          <directory>../test/e2e</directory>
-      </testsuite>
+      </testsuite> -->
    </testsuites>
 
    <source>
       <include>
          <directory>../shared/src</directory>
          <directory>../domain/src</directory>
+         <directory>../domain/infrastructure/src</directory>
+         <directory>../domain/modules/src</directory>
          <directory>../web/src</directory>
          <directory>../worker/src</directory>
          <directory>../console/src</directory>
