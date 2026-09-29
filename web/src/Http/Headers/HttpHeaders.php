@@ -24,6 +24,7 @@ enum HttpHeaders: string
     case ContentDisposition = 'Content-Disposition';
     case Location = 'Location';
     case SetCookie = 'Set-Cookie';
+    case Vary = 'Vary';
     case XAccelBuffering = 'X-Accel-Buffering';
 
     // Both
@@ -66,6 +67,7 @@ enum HttpHeaders: string
             self::ContentDisposition,
             self::Location,
             self::SetCookie,
+            self::Vary,
             self::XAccelBuffering,
             self::ContentLength,
             self::ContentType => true,

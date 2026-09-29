@@ -54,16 +54,21 @@ final class ControllerStub extends ControllerBase
         return '';
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param array<string, mixed> $data
+     */
     public function callView(string $template, array $data = [], HttpStatus $status = HttpStatus::Ok): Response
     {
         return $this->view($template, $data, $status);
     }
 
-    /** @param array<string, mixed> $data */
-    public function callPayload(array $data, HttpStatus $status = HttpStatus::Ok): Response
+    /**
+     * @param array<string, mixed> $data
+     * @param list<string> $accept
+     */
+    public function callPayload(array $data, array $accept = [], HttpStatus $status = HttpStatus::Ok): Response
     {
-        return $this->payload($data, $status);
+        return $this->payload($data, $accept, $status);
     }
 
     public function callSse(Closure $source): Response

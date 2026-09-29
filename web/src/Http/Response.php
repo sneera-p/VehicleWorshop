@@ -86,6 +86,34 @@ final class Response
     }
 
     /**
+     * Shortcut to send $data as JSON. - sets all the correct headers
+     *
+     * @param array<string, mixed> $data - data
+     */
+    public static function json(array $data, HttpStatus $status = HttpStatus::Ok): self
+    {
+        return self::make(
+            json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS),
+            [HttpHeaders::ContentType->value => ['application/json; charset=utf-8']],
+            $status
+        );
+    }
+
+    /**
+     * Shortcut to send $data as CBOR. - sets all the correct headers
+     *
+     * @param array<string, mixed> $data - data
+     */
+    public static function cbor(array $data, HttpStatus $status = HttpStatus::Ok): self
+    {
+        return self::make(
+            cbor_encode($data, CBOR_TEXT | CBOR_KEY_TEXT),
+            [HttpHeaders::ContentType->value => ['application/cbor']],
+            $status
+        );
+    }
+
+    /**
      * For bodies that aren't one known string up front — SSE, chunked output.
      *
      * @param Closure(): void $emit - does all the writing itself; nothing here buffers it.

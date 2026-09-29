@@ -23,6 +23,7 @@ enum HttpStatus: int
     case Forbidden = 403;
     case NotFound = 404;
     case MethodNotAllowed = 405;
+    case NotAcceptable = 406;
     case Conflict = 409;
     case UnprocessableEntity = 422;
 
@@ -42,6 +43,7 @@ enum HttpStatus: int
             self::Forbidden => 'Forbidden',
             self::NotFound => 'Not Found',
             self::MethodNotAllowed => 'Method Not Allowed',
+            self::NotAcceptable => 'Not Acceptable',
             self::Conflict => 'Conflict',
             self::UnprocessableEntity => 'Unprocessable Entity',
             self::InternalServerError => 'Internal Server Error',

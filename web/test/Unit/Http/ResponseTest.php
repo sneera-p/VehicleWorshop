@@ -22,6 +22,8 @@ final class ResponseTest extends TestCase
 {
     private const array HTML = ['Content-Type' => ['text/html; charset=utf-8']];
     private const array TEXT = ['Content-Type' => ['text/plain; charset=utf-8']];
+    private const array JSON = ['Content-Type' => ['application/json; charset=utf-8']];
+    private const array CBOR = ['Content-Type' => ['application/cbor']];
 
     /**
      * @param list<mixed> $args
@@ -32,6 +34,14 @@ final class ResponseTest extends TestCase
     #[TestWith(['html', ['<p>x</p>'], HttpStatus::Ok, self::HTML, '<p>x</p>'])]
     #[TestWith(['html', ['', HttpStatus::NotFound], HttpStatus::NotFound, self::HTML, ''])]
     #[TestWith(['text', ['0'], HttpStatus::Ok, self::TEXT, '0'])]
+    #[TestWith(['json', [['a' => 1]], HttpStatus::Ok, self::JSON, '{"a":1}'])]
+    #[TestWith(['json', [['path' => '/jobs/42']], HttpStatus::Ok, self::JSON, '{"path":"/jobs/42"}'])]
+    #[TestWith(['json', [['name' => 'රසීද']], HttpStatus::Ok, self::JSON, '{"name":"රසීද"}'])]
+    #[TestWith(['json', [['s' => "a\u{2028}b"]], HttpStatus::Ok, self::JSON, "{\"s\":\"a\u{2028}b\"}"])]
+    #[TestWith(['json', [[], HttpStatus::Created], HttpStatus::Created, self::JSON, '[]'])]
+    #[TestWith(['cbor', [['a' => 1]], HttpStatus::Ok, self::CBOR, "\xa1\x61a\x01"])]
+    #[TestWith(['cbor', [['a' => 'b']], HttpStatus::Ok, self::CBOR, "\xa1\x61a\x61b"])]
+    #[TestWith(['cbor', [[], HttpStatus::Created], HttpStatus::Created, self::CBOR, "\x80"])]
     #[TestWith(['error', [HttpStatus::Conflict, 'nope'], HttpStatus::Conflict, self::TEXT, 'nope'])]
     #[TestWith(['error', [HttpStatus::InternalServerError], HttpStatus::InternalServerError, self::TEXT, ''])]
     #[TestWith(['redirect', ['/jobs/42'], HttpStatus::Found, ['Location' => ['/jobs/42']], ''])]
@@ -48,6 +58,35 @@ final class ResponseTest extends TestCase
 
         $this->expectOutputString($body);
         $response->send();
+    }
+
+    #[Test]
+    public function json_throws_instead_of_sending_a_false_body(): void
+    {
+        $this->expectException(\JsonException::class);
+        Response::json(['bad' => "\xff"]); // invalid UTF-8
+    }
+
+    #[Test]
+    public function cbor_throws_on_invalid_utf8_in_text_mode(): void
+    {
+        $this->expectException(\Cbor\Exception::class);
+        $this->expectExceptionCode(CBOR_ERROR_UTF8);
+        Response::cbor(['bad' => "\xff"]);
+    }
+
+    #[Test]
+    public function cbor_encodes_strings_and_keys_as_text_not_bytes(): void
+    {
+        $response = Response::cbor(['name' => 'x']);
+
+        ob_start();
+        $response->send();
+        $body = (string) ob_get_clean();
+
+        // map(1), then major type 3 (text, 0x6_) — byte strings would be major type 2 (0x4_)
+        $this->assertSame("\xa1\x64name\x61x", $body);
+        $this->assertSame(['name' => 'x'], cbor_decode($body, CBOR_TEXT | CBOR_KEY_TEXT | CBOR_MAP_AS_ARRAY));
     }
 
     #[Test]

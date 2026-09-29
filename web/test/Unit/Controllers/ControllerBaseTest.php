@@ -10,6 +10,8 @@ use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
+use Vwork\Shared\Types\Cast;
+use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Response;
 use Vwork\Web\Test\Stubs\ControllerBaseStub;
@@ -66,6 +68,9 @@ final class ControllerBaseTest extends TestCase
         new ControllerBaseStub()->callView('does_not_exist');
     }
 
+    private const array JSON = ['Content-Type' => ['application/json; charset=utf-8'], 'Vary' => ['Accept']];
+    private const array CBOR = ['Content-Type' => ['application/cbor'], 'Vary' => ['Accept']];
+
     /**
      * @param array<string, mixed> $data
      */
@@ -75,17 +80,70 @@ final class ControllerBaseTest extends TestCase
     #[TestWith([['url' => '/jobs/1', 'name' => 'රසීද', 'sep' => "\u{2028}"], "{\"url\":\"/jobs/1\",\"name\":\"රසීද\",\"sep\":\"\u{2028}\"}"])]
     public function payload_sends_json(array $data, string $expected): void
     {
-        $response = new ControllerBaseStub()->callPayload($data);
+        $response = new ControllerBaseStub()->callPayload($data, ['application/json']);
 
         $this->assertSame(HttpStatus::Ok, $response->status);
-        $this->assertSame(['Content-Type' => ['application/json; charset=utf-8']], $response->headers->list);
+        $this->assertSame(self::JSON, $response->headers->list);
         $this->assertSame($expected, self::body($response));
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    #[Test]
+    #[TestWith([['id' => 42], "\xa1\x62id\x18\x2a"])] // map(1), text(2) "id", uint 42
+    #[TestWith([[], "\x80"])]                          // empty PHP array is a list
+    public function payload_sends_cbor(array $data, string $expected): void
+    {
+        $response = new ControllerBaseStub()->callPayload($data, ['application/cbor']);
+
+        $this->assertSame(HttpStatus::Ok, $response->status);
+        $this->assertSame(self::CBOR, $response->headers->list);
+        $this->assertSame($expected, self::body($response));
+    }
+
+    /**
+     * @param list<string> $accept
+     * @param non-empty-string $expectedType
+     */
+    #[Test]
+    #[TestWith([[], 'application/json'])]                                                   // no Accept header
+    #[TestWith([['*/*'], 'application/json'])]                                              // fetch()/curl default
+    #[TestWith([['application/*'], 'application/json'])]
+    #[TestWith([['APPLICATION/CBOR'], 'application/cbor'])]                                 // media types are case-insensitive
+    #[TestWith([['text/html', 'application/cbor'], 'application/cbor'])]                    // unsupported types skipped
+    #[TestWith([['application/json;q=0.5', 'application/cbor;q=0.9'], 'application/cbor'])] // higher q wins
+    #[TestWith([['application/cbor;q=0.9', 'application/json'], 'application/json'])]       // missing q means 1
+    #[TestWith([['*/*', 'application/cbor'], 'application/cbor'])]                          // specific beats wildcard at equal q
+    #[TestWith([['application/cbor', 'application/json;q=0.1'], 'application/cbor'])]       // header split over several lines
+    #[TestWith([['application/cbor;q=0', 'application/json'], 'application/json'])]         // q=0 means "not acceptable"
+    public function payload_negotiates_the_type_from_accept(array $accept, string $expectedType): void
+    {
+        $response = new ControllerBaseStub()->callPayload(['id' => 1], $accept);
+
+        $this->assertSame(HttpStatus::Ok, $response->status);
+        $this->assertStringStartsWith($expectedType, Cast::string($response->headers[HttpHeaders::ContentType]));
+    }
+
+    /**
+     * @param list<string> $accept
+     */
+    #[Test]
+    #[TestWith([['text/xml']])]
+    #[TestWith([['application/json;q=0, application/cbor;q=0']])]
+    public function payload_answers_406_when_no_supported_type_is_acceptable(array $accept): void
+    {
+        $response = new ControllerBaseStub()->callPayload(['id' => 1], $accept);
+
+        $this->assertSame(HttpStatus::NotAcceptable, $response->status);
+        $this->assertSame(['Accept'], $response->headers->list['Vary']);
+        $this->assertSame('Supported: application/json, application/cbor', self::body($response));
     }
 
     #[Test]
     public function payload_uses_the_given_status(): void
     {
-        $response = new ControllerBaseStub()->callPayload(['error' => 'taken'], HttpStatus::Conflict);
+        $response = new ControllerBaseStub()->callPayload(['error' => 'taken'], [], HttpStatus::Conflict);
 
         $this->assertSame(HttpStatus::Conflict, $response->status);
     }
@@ -94,7 +152,15 @@ final class ControllerBaseTest extends TestCase
     public function payload_throws_on_data_json_cannot_hold(): void
     {
         $this->expectException(JsonException::class);
-        new ControllerBaseStub()->callPayload(['bad' => "\xB1\x31"]); // invalid UTF-8
+        new ControllerBaseStub()->callPayload(['bad' => "\xB1\x31"], ['application/json']); // invalid UTF-8
+    }
+
+    #[Test]
+    public function payload_throws_on_data_cbor_text_cannot_hold(): void
+    {
+        $this->expectException(\Cbor\Exception::class);
+        $this->expectExceptionCode(CBOR_ERROR_UTF8);
+        new ControllerBaseStub()->callPayload(['bad' => "\xB1\x31"], ['application/cbor']);
     }
 
     #[Test]
