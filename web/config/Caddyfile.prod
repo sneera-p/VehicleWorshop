@@ -3,26 +3,35 @@
 	admin off
 }
 
-# SERVER_NAME controls whether Caddy auto-provisions a real TLS cert:
-#   - Unset (default):
-#        site address is ":80" -> plain HTTP, no cert attempt.
-#        Correct when something in front (LB, reverse proxy, Cloudflare, k8s
-#        ingress) already terminates TLS and forwards plain HTTP here.
-#   - Set (e.g.SERVER_NAME=vwork.example.com):
-#         Caddy automatically requests a Let's Encrypt cert, serves HTTPS on 443,
-#         and redirects 80 -> 443. No other change needed in this file when you're
-#         ready to go direct.
-{$SERVER_NAME}:80 {
-	route {
-		@assets {
-			path /app/web/public/assets/*
-		}
+# SERVER_NAME decides whether Caddy handles HTTPS itself:
+#     Unset (default):
+#        the site is ":80", plain HTTP. Use this when something in
+#        front (load balancer, reverse proxy, Cloudflare) already terminates TLS.
+#     Set (e.g. SERVER_NAME=vwork.example.com):
+#        Caddy gets a Let's Encrypt certificate,
+#        serves HTTPS on 443 and redirects 80 to 443.
+#        The web service must receive SERVER_NAME in docker-compose.yml,
+#        and its healthcheck must then call that hostname over HTTPS.
 
+{$SERVER_NAME::80} {
+   # Compress text responses (HTML, CSS, JS, JSON).
+	encode zstd gzip
+
+   # Built assets: requests under /assets/ (the URL path, not a disk path).
+	@assets path /assets/*
+
+	# # Only if Bun writes hashed file names (app.3f9a1c.js): let browsers cache
+	# # assets for a year. With fixed names, users would keep stale files.
+	# header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# `route` runs the directives below in the order written.
+	route {
+		# Assets come straight from disk. A missing file is a 404,
 		file_server @assets {
 			root /app/web/public
 		}
 
-		rewrite index.php
+		rewrite /index.php
 		php {
 			root /app/web/public
 			resolve_root_symlink false

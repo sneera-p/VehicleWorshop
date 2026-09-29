@@ -63,6 +63,8 @@
             "sanderronde.phpstan-vscode",
             "xdebug.php-debug",
             "recca0120.vscode-phpunit",
+            // Caddy
+            "willibrandon.caddyfile",
             // shell (.sh | .bash)
             "foxundermoon.shell-format",
             // ENV (.env)

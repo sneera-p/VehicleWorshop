@@ -2,17 +2,22 @@
 	frankenphp
 }
 
-:80 {
-	route {
-		@assets {
-			path /app/web/public/assets/*
-		}
+# Dev: classic mode (every request runs fresh PHP
 
+:80 {
+	# Compress text responses (HTML, CSS, JS, JSON)
+	encode zstd gzip
+
+	@assets path /assets/*
+
+	# `route` runs the directives below in the order written.
+	route {
+		# Built assets come straight from disk. A missing file is a 404,
 		file_server @assets {
 			root /app/web/public
 		}
 
-		rewrite index.php
+		rewrite /index.php
 		php {
 			root /app/web/public
 			resolve_root_symlink false
