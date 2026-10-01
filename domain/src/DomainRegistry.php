@@ -17,37 +17,41 @@ use Vwork\Shared\Collections\Registry;
  * makes sure each closure runs at most once and every later caller gets
  * back the same instance instead of a fresh one.
  *
- * This can be extended by other classes (eg: AppServiceRegistry) or used just as it is
+ * This can be extended by other classes (eg: AppRegistry) or used just as it is
  *
- * @extends Registry<IDomainRegistry>
+ * @template-covariant T of object - the interface bindings are written against (eg: IAppRegistry)
+ *
  * @author Senira <senirahan@gmail.com>
  */
-class DomainRegistry extends Registry implements IDomainRegistry
+abstract class DomainRegistry implements IDomainRegistry
 {
+    /** @var Registry<T> */
+    private Registry $registry;
+
     /**
-     * @param array<class-string, array<class-string, Closure(IDomainRegistry): object>> $bindings
+     * @param array<class-string, array<class-string, Closure(T): object>> $bindings
      * @param list<class-string> $allowedCategories - additional categories a subclass needs
-     *                                                (eg: AppServiceRegistry adding IController / IMiddleware)
+     *                                                (eg: AppRegistry adding IController / IMiddleware)
+     * @param T $registrar - the owner, passed to every factory
      */
-    public function __construct(array $bindings, array $allowedCategories = [])
+    public function __construct(array $bindings, array $allowedCategories, object $registrar)
     {
-        parent::__construct(
+        $this->registry = new Registry(
             $bindings,
-            [IFacade::class, IInfrastructure::class, ...$allowedCategories]
+            [IFacade::class, IInfrastructure::class, ...$allowedCategories],
+            $registrar
         );
     }
 
     #[Override]
     public function getInfrastructure(string $name): IInfrastructure
     {
-        /** @var IInfrastructure */
-        return $this->resolve(IInfrastructure::class, $name, $this);
+        return $this->registry->resolve(IInfrastructure::class, $name);
     }
 
     #[Override]
     public function getFacade(string $name): IFacade
     {
-        /** @var IFacade */
-        return $this->resolve(IFacade::class, $name, $this);
+        return $this->registry->resolve(IFacade::class, $name);
     }
 }

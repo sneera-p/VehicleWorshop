@@ -4,137 +4,84 @@ declare(strict_types=1);
 
 namespace Vwork\Shared\Test\Collections;
 
-use Closure;
 use ArrayObject;
-use stdClass;
+use Countable;
 use Exception;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
+use PHPUnit\Framework\TestCase;
+use stdClass;
+use Vwork\Shared\Collections\Registry;
 use Vwork\Shared\Exception\VworkError;
-use Vwork\Shared\Test\Stubs\StubRegistry;
+use Vwork\Shared\Test\Stubs\RegistryOwnerStub;
 
 final class RegistryTest extends TestCase
 {
+    /**
+     * @param non-zero-int $attempts
+     */
     #[Test]
-    public function resolve_returns_factory_built_instance(): void
-    {
-        $expected = new ArrayObject();
-
-        $registry = new StubRegistry(
-            bindings: [
-                stdClass::class => [
-                    ArrayObject::class => fn (StubRegistry $registrar) => $expected,
-                ],
-            ],
-            allowedCategories: [stdClass::class],
-        );
-
-        $this->assertSame($expected, $registry->resolvePublic(stdClass::class, ArrayObject::class));
-    }
-
-    #[Test]
-    #[TestWith([4])]
+    #[TestWith([1])]
     #[TestWith([5])]
-    #[TestWith([10])]
-    public function factory_runs_only_once(int $attempts): void
+    #[TestWith([15])]
+    public function resolve_builds_once_with_the_owner_and_caches(int $attempts): void
     {
         $calls = 0;
-
-        $registry = new StubRegistry(
-            bindings: [
-                stdClass::class => [
-                    ArrayObject::class => function (StubRegistry $registrar) use (&$calls): object {
-                        $calls++;
-                        return new ArrayObject();
-                    },
-                ],
-            ],
-            allowedCategories: [stdClass::class],
+        $seen = null;
+        $owner = new RegistryOwnerStub(
+            [stdClass::class => [ArrayObject::class => static function (RegistryOwnerStub $o) use (&$calls, &$seen): object {
+                $calls++;
+                $seen = $o; // what Registry handed the factory
+                return new ArrayObject();
+            }]],
+            [stdClass::class],
         );
 
-        for ($i = 0; $i < $attempts; $i++) {
-            $registry->resolvePublic(stdClass::class, ArrayObject::class);
+        $first = $owner->get(stdClass::class, ArrayObject::class);
+        for ($i = 1; $i < $attempts; $i++) {
+            $this->assertSame($first, $owner->get(stdClass::class, ArrayObject::class));
         }
 
         $this->assertSame(1, $calls);
-    }
-
-    #[Test]
-    public function resolve_passes_registrar_to_factory(): void
-    {
-        $result = null;
-
-        $registry = new StubRegistry(
-            bindings: [
-                stdClass::class => [
-                    ArrayObject::class => function (StubRegistry $registrar) use (&$result): object {
-                        $result = $registrar;
-                        return new ArrayObject();
-                    },
-                ],
-            ],
-            allowedCategories: [stdClass::class],
-        );
-
-        $registry->resolvePublic(stdClass::class, ArrayObject::class);
-        $this->assertSame($registry, $result);
+        $this->assertSame($owner, $seen);
     }
 
     /**
      * @param class-string $category
      * @param class-string $key
-     * @param array<class-string, array<class-string, Closure(StubRegistry): object>> $bindings
-     * @param list<class-string> $allowedCategories
      */
     #[Test]
-    #[TestWith([Exception::class, ArrayObject::class, [], [stdClass::class]])]
-    #[TestWith([stdClass::class, Exception::class, [stdClass::class => []], [stdClass::class]])]
-    public function resolve_throws_for_invalid_lookup(
-        string $category,
-        string $key,
-        array $bindings,
-        array $allowedCategories,
-    ): void {
-        $registry = new StubRegistry($bindings, $allowedCategories);
+    #[TestWith([Exception::class, ArrayObject::class])] // category not allowed
+    #[TestWith([stdClass::class, Exception::class])]    // nothing bound
+    #[TestWith([stdClass::class, Countable::class])]    // factory builds the wrong type
+    public function resolve_throws_for_a_bad_lookup(string $category, string $key): void
+    {
+        $registry = new Registry(
+            [stdClass::class => [Countable::class => static fn (): object => new stdClass()]],
+            [stdClass::class],
+            new stdClass(),
+        );
 
         $this->expectException(VworkError::class);
-        $registry->resolvePublic($category, $key);
+        $registry->resolve($category, $key);
     }
 
     #[Test]
-    public function constructor_throws_for_disallowed_category(): void
+    public function resolve_throws_on_a_circular_binding(): void
     {
-        $this->expectException(VworkError::class);
-
-        new StubRegistry(
-            bindings: [
-                Exception::class => [
-                    ArrayObject::class => fn (StubRegistry $registrar): object => new ArrayObject(),
-                ],
-            ],
-            allowedCategories: [stdClass::class], // Exception::class deliberately not included
+        $owner = new RegistryOwnerStub(
+            [stdClass::class => [ArrayObject::class => static fn (RegistryOwnerStub $o): object => $o->get(stdClass::class, ArrayObject::class)]],
+            [stdClass::class],
         );
+
+        $this->expectException(VworkError::class);
+        $owner->get(stdClass::class, ArrayObject::class);
     }
 
     #[Test]
-    public function different_categories_with_same_key_do_not_collide(): void
+    public function the_constructor_rejects_a_category_that_is_not_allowed(): void
     {
-        $expected = new ArrayObject();
-
-        $registry = new StubRegistry(
-            bindings: [
-                stdClass::class => [
-                    ArrayObject::class => fn (StubRegistry $r): object => $expected,
-                ],
-                Exception::class => [
-                    ArrayObject::class => fn (StubRegistry $r): object => $expected,
-                ],
-            ],
-            allowedCategories: [stdClass::class, Exception::class],
-        );
-
-        $this->assertSame($expected, $registry->resolvePublic(stdClass::class, ArrayObject::class));
-        $this->assertSame($expected, $registry->resolvePublic(Exception::class, ArrayObject::class));
+        $this->expectException(VworkError::class);
+        new Registry([Exception::class => []], [stdClass::class], new stdClass());
     }
 }
