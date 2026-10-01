@@ -13,6 +13,8 @@ use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Pipeline\ControllerHandler;
 use Vwork\Web\Router\Router;
+use Vwork\Web\Router\RouterFactory;
+use Vwork\Web\Router\RouterTypes;
 use Vwork\Web\Test\Stubs\ControllerStub;
 
 final class AppTest extends TestCase
@@ -29,28 +31,33 @@ final class AppTest extends TestCase
 
     private static function app(): App
     {
-        $router = new Router();
-        $router->register(HttpMethods::GET, '/jobs', new ControllerHandler(new ControllerStub(), 'index'));
+        $routerFactory = new RouterFactory([
+            [
+                'method' => HttpMethods::POST,
+                'path' => '/jobs',
+                'handler' => new ControllerHandler(new ControllerStub(), 'index'),
+            ]
+        ]);
 
-        return new App($router);
+        return new App($routerFactory->create(RouterTypes::Trie), secure: true);
     }
 
     #[Test]
     public function handle_request_runs_the_matched_pipeline(): void
     {
-        $response = self::app()->handleRequest(self::request(HttpMethods::GET, '/jobs'));
+        $response = self::app()->handleRequest(self::request(HttpMethods::POST, '/jobs'));
 
         $this->expectOutputString('index');
-        $response->send();
+        $response->send(true);
     }
 
     #[Test]
     public function handle_request_answers_405_with_allow_when_the_method_is_wrong(): void
     {
-        $response = self::app()->handleRequest(self::request(HttpMethods::POST, '/jobs'));
+        $response = self::app()->handleRequest(self::request(HttpMethods::GET, '/jobs'));
 
         $this->assertSame(HttpStatus::MethodNotAllowed, $response->status);
-        $this->assertSame(['GET'], $response->headers->list['Allow']);
+        $this->assertSame(['POST'], $response->headers->list['Allow']);
     }
 
     #[Test]

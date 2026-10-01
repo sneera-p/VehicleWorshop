@@ -3,4 +3,4 @@
  * @var string $message
  */
 ?>
-<p>Message: <i><?= $message ?></i></p>
+<p>Message: <i id='msg'><?= $message ?></i></p>

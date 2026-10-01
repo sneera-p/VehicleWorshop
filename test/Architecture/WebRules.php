@@ -8,6 +8,8 @@ use PHPat\Selector\Selector;
 use PHPat\Test\Attributes\TestRule;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
+use Throwable;
+use Vwork\Web\Controllers\ControllerAction;
 
 /**
  * Deptrac covers Layering rules
@@ -54,5 +56,27 @@ final class WebRules
                 Selector::isFinal(),
             )
             ->because("Only Configuration can Inject Middleware, everyone else uses IMiddleware");
+    }
+
+    #[TestRule]
+    public function services_are_readonly(): Rule
+    {
+        return PHPat::rule()
+            ->classes(
+                Selector::inNamespace('Vwork\Web\Controllers'),
+                Selector::inNamespace('Vwork\Web\Middleware'),
+                Selector::inNamespace('Vwork\Web\Pipeline'),
+                Selector::inNamespace('Vwork\Web\Router'),
+                Selector::inNamespace('Vwork\Web\Utils'),
+            )
+            ->excluding(
+                Selector::isInterface(),
+                Selector::isEnum(),
+                Selector::implements(Throwable::class), // Error and Exception subclasses, in any selected namespace
+                Selector::classname(ControllerAction::class)
+            )
+            ->should()
+            ->beReadonly()
+            ->because('worker mode reuses services across requests; mutable state leaks between them');
     }
 }

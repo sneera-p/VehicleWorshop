@@ -10,6 +10,8 @@ namespace Vwork\Web\Controllers;
  * It has no methods. It only lets the registry and the pipeline say
  * "this must be a controller" in their types.
  *
+ * @phpstan-type StringMap array<string, mixed>
+ *
  * @author Senira <senirahan@gmail.com>
  */
 interface IController

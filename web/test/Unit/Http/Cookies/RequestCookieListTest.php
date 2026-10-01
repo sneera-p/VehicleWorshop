@@ -17,7 +17,7 @@ final class RequestCookieListTest extends TestCase
     private static function parse(?string $header): RequestCookieList
     {
         return RequestCookieList::fromHeader(
-            HttpHeaderList::fromArray($header === null ? [] : ['Cookie' => [$header]]),
+            HttpHeaderList::fromServer($header === null ? [] : ['HTTP_COOKIE' => $header]),
         );
     }
 
@@ -27,7 +27,7 @@ final class RequestCookieListTest extends TestCase
     #[Test]
     #[TestWith([null, []])]
     #[TestWith(['', []])]
-    #[TestWith(['session_token=abc; csrf_token=xyz', ['session_token' => 'abc', 'csrf_token' => 'xyz']])]
+    #[TestWith(['session_token=abc; refresh_token=xyz', ['session_token' => 'abc', 'refresh_token' => 'xyz']])]
     #[TestWith(['session_token=abc; ga_tracking=xyz', ['session_token' => 'abc']])]
     #[TestWith(['session_token=abc;;garbage; ', ['session_token' => 'abc']])]
     #[TestWith(['session_token=', ['session_token' => '']])]
@@ -47,8 +47,8 @@ final class RequestCookieListTest extends TestCase
 
         $this->assertSame('abc', $cookies[HttpCookies::SessionToken]);
         $this->assertTrue(isset($cookies[HttpCookies::SessionToken]));
-        $this->assertNull($cookies[HttpCookies::CsrfToken]);
-        $this->assertFalse(isset($cookies[HttpCookies::CsrfToken]));
+        $this->assertNull($cookies[HttpCookies::RefreshToken]);
+        $this->assertFalse(isset($cookies[HttpCookies::RefreshToken]));
     }
 
     #[Test]

@@ -26,6 +26,6 @@ final class MiddlewareHandlerTest extends TestCase
             ->handle($request, []);
 
         $this->expectOutputString('index');
-        $response->send();
+        $response->send(true);
     }
 }

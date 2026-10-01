@@ -40,7 +40,7 @@ parameters:
 rules:
    # Every #[ControllerAction] must be:
    # public function name(Request $request, array $attr): Response
-   - Vwork\Test\Architecture\ControllerActionRule
+   - Vwork\Test\Architecture\ControllerActionRules
 
 # PHPat architecture tests. PHPat only runs classes tagged phpat.test.
 # Its extension.neon is included automatically by phpstan/extension-installer;
@@ -54,4 +54,5 @@ services:
       tags: [phpat.test]
    -
       class: Vwork\Test\Architecture\WebRules
+      
       tags: [phpat.test]

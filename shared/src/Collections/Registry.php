@@ -8,65 +8,82 @@ use Closure;
 use Vwork\Shared\Exception\VworkError;
 
 /**
- * lazy-build-and-cache registry.
+ * A lazy-build-and-cache registry, meant to be owned, not extended.
  *
- * Subclasses just supply the class-string => closure bindings;
- * this class makes sure each closure runs at most once and every later caller gets the same instance.
+ * The owner (eg: DomainRegistry) hands over its class-string => closure
+ * bindings and itself as the $registrar. Each closure runs at most once,
+ * receives the registrar so it can resolve its own dependencies, and
+ * every later caller gets the same instance.
  *
- * This can be extended by other classes (eg: AppServiceRegistry) or used just as it is
+ * Not readonly on purpose: $resolved fills up as services are first used.
+ * That state is the same for every request, so it's safe in worker mode.
  *
- * @template T of object -  the registry interface bindings are written against (eg: IDomainRegistry).
- *                          Subclasses prove they satisfy T via $registrar, since PHP/PHPStan can't
- *                          infer "$this implements T" on its own for a self-referential generic.
+ * @template-covariant T of object - the interface bindings are written against (eg: IAppRegistry)
  *
  * @author Senira <senirahan@gmail.com>
  */
-abstract class Registry
+final class Registry
 {
-    /**
-     * @var array<class-string, array<class-string, object>> $resolved
-     */
-    protected array $resolved = [];
+    /** @var array<class-string, array<class-string, object>> */
+    private array $resolved = [];
+
+    /** @var array<class-string, array<class-string, bool>> */
+    private array $building = [];
 
     /**
      * @param array<class-string, array<class-string, Closure(T): object>> $bindings
      * @param list<class-string> $allowedCategories
+     * @param T $registrar - the owner, passed to every factory
      */
     public function __construct(
-        protected readonly array $bindings,
-        protected readonly array $allowedCategories
+        private readonly array $bindings,
+        private readonly array $allowedCategories,
+        private readonly object $registrar,
     ) {
         $unknown = array_diff(array_keys($bindings), $allowedCategories);
         if ($unknown !== []) {
-            throw new VworkError(static::class . ' bindings may only be categorized by ' . implode(', ', $allowedCategories));
+            throw new VworkError('Bindings may only be categorized by ' . implode(', ', $allowedCategories));
         }
     }
 
     /**
+     * @template S of object
      * @param class-string $category
-     * @param class-string $key
-     * @param T $registrar - $this (child class object) narrowed to the interface bound to T
+     * @param class-string<S> $key
+     * @return S
      *
-     * @throws VworkError - if there is no registered service
+     * @throws VworkError if the category isn't allowed, nothing is bound to $key,
+     *     the factory builds the wrong type, or the bindings form a cycle
      */
-    protected function resolve(string $category, string $key, mixed $registrar): object
+    public function resolve(string $category, string $key): object
     {
         if (!in_array($category, $this->allowedCategories, strict: true)) {
-            throw new VworkError("$category not allowed");
+            throw new VworkError("{$category} not allowed");
         }
 
         $cached = $this->resolved[$category][$key] ?? null;
-        if ($cached !== null) {
+        if ($cached instanceof $key) {
             return $cached;
         }
 
-        $factory = $this->bindings[$category][$key] ?? null;
-        if ($factory !== null) {
-            $instance = $factory($registrar);
-            $this->resolved[$category][$key] = $instance;
-            return $instance;
+        $factory = $this->bindings[$category][$key]
+            ?? throw new VworkError("No binding registered for {$category} {$key}");
+
+        if (isset($this->building[$category][$key])) {
+            throw new VworkError("Circular binding: {$category} {$key}");
         }
 
-        throw new VworkError("No binding registered for {$key}");
+        $this->building[$category][$key] = true;
+        try {
+            $instance = $factory($this->registrar);
+        } finally {
+            unset($this->building[$category][$key]);
+        }
+
+        if (!$instance instanceof $key) {
+            throw new VworkError("Binding for {$key} built a " . $instance::class);
+        }
+
+        return $this->resolved[$category][$key] = $instance;
     }
 }

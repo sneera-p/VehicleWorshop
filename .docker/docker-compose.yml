@@ -5,7 +5,7 @@ name: VehicleWorkshop
 #
 # Networks:
 #   web_net  — web only. The one network with published ports (80/443).
-#   data_net — web, db, cache. Internal; web talks to db/cache here.
+#   data_net — web, worker, db, cache. Internal; web talks to db/cache here.
 
 services:
    web:
@@ -31,17 +31,17 @@ services:
          CACHE_HOST: cache
          CACHE_PORT: "6379"
          CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+         FILE_STORE_PATH: ${FILE_STORE_PATH:?FILE_STORE_PATH not in .env}
          VIEW_PATH: ${VIEW_PATH:?VIEW_PATH not in .env}
          CSRF_KEY: ${CSRF_KEY:?CSRF_KEY not in .env}
+      volumes:
+         - file_data:${FILE_STORE_PATH:?FILE_STORE_PATH not in .env}
       depends_on:
          db:
             condition: service_healthy
          cache:
             condition: service_healthy
       healthcheck:
-         # The base image's own healthcheck curls :2019 (FrankenPHP's admin
-         # API), which the Caddyfile disables — always fails. Check the
-         # actual web port instead.
          test: [ "CMD-SHELL", "wget -qO- http://localhost:80/hello || exit 1" ]
          interval: 5s
          timeout: 5s
@@ -69,6 +69,9 @@ services:
          CACHE_HOST: cache
          CACHE_PORT: "6379"
          CACHE_PASSWORD: ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+         FILE_STORE_PATH: ${FILE_STORE_PATH:?FILE_STORE_PATH not in .env}
+      volumes:
+         - file_data:${FILE_STORE_PATH:?FILE_STORE_PATH not in .env}
       depends_on:
          db:
             condition: service_healthy
@@ -98,7 +101,7 @@ services:
       image: valkey/valkey:9.1.1-alpine3.24@sha256:ee91f7a174ac4d6a6b0685b3a60e321f0a9dbbb691f9b0e285be2ba1d1be8328
       restart: unless-stopped
       environment:
-         VALKEY_EXTRA_FLAGS: --requirepass ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env}
+         VALKEY_EXTRA_FLAGS: --requirepass ${CACHE_PASSWORD:?CACHE_PASSWORD not in .env} --appendonly yes --appendfsync everysec
       volumes:
          - cache_data:/data
       healthcheck:
@@ -112,6 +115,7 @@ services:
 volumes:
    db_data:
    cache_data:
+   file_data:
 
 networks:
    web_net:

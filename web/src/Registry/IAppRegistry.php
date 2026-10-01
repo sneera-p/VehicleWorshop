@@ -11,6 +11,6 @@ use Vwork\Domain\IDomainRegistry;
  *
  * @author Senira <senirahan@gmail.com>
  */
-interface IAppServiceRegistry extends IDomainRegistry, IHttpRegistry
+interface IAppRegistry extends IDomainRegistry, IHttpRegistry
 {
 }

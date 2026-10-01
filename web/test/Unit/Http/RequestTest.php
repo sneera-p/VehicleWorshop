@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Vwork\Web\Http\Cookies\HttpCookies;
-use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\RequestHeaders;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Test\Mocks\MockInputStream;
@@ -79,6 +79,8 @@ final class RequestTest extends TestCase
     #[TestWith(['POST', HttpMethods::POST])]
     #[TestWith(['get', HttpMethods::GET])]
     #[TestWith(['Patch', HttpMethods::PATCH])]
+    #[TestWith(['HEAD', HttpMethods::HEAD])]
+    #[TestWith(['options', HttpMethods::OPTIONS])]
     public function resolves_the_method_case_insensitively(string $raw, HttpMethods $expected): void
     {
         $this->assertSame($expected, self::request(['REQUEST_METHOD' => $raw])->method);
@@ -122,19 +124,24 @@ final class RequestTest extends TestCase
     #[Test]
     public function headers_are_read_from_server(): void
     {
-        $request = self::request(['CONTENT_TYPE' => 'application/json', 'HTTP_USER_AGENT' => 'phpunit']);
+        $request = self::request([
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_USER_AGENT' => 'phpunit',
+            'HTTP_ACCEPT' => 'application/cbor, application/json',
+        ]);
 
-        $this->assertSame('application/json', $request->headers[HttpHeaders::ContentType]);
-        $this->assertSame('phpunit', $request->headers[HttpHeaders::UserAgent]);
+        $this->assertSame('application/json', $request->headers[RequestHeaders::ContentType]);
+        $this->assertSame('phpunit', $request->headers[RequestHeaders::UserAgent]);
+        $this->assertSame(['application/cbor', 'application/json'], $request->headers[RequestHeaders::Accept]);
     }
 
     #[Test]
     public function cookies_are_parsed_from_the_cookie_header(): void
     {
-        $request = self::request(['HTTP_COOKIE' => 'session_token=abc; csrf_token=xyz']);
+        $request = self::request(['HTTP_COOKIE' => 'session_token=abc; refresh_token=xyz']);
 
         $this->assertSame('abc', $request->cookies[HttpCookies::SessionToken]);
-        $this->assertSame('xyz', $request->cookies[HttpCookies::CsrfToken]);
+        $this->assertSame('xyz', $request->cookies[HttpCookies::RefreshToken]);
     }
 
     /**

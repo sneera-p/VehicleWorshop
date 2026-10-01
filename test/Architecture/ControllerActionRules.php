@@ -21,7 +21,7 @@ use Vwork\Web\Http\Response;
  *
  * @implements Rule<ClassMethod>
  */
-final class ControllerActionRule implements Rule
+final class ControllerActionRules implements Rule
 {
     public function getNodeType(): string
     {

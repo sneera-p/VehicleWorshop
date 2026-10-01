@@ -13,5 +13,22 @@ enum HttpCookies: string
 {
     case SessionToken = 'session_token';
     case RefreshToken = 'refresh_token';
-    case CsrfToken = 'csrf_token';
+
+    public function toLine(string $value, string $path, CookieSitePolicies $sameSite, ?int $maxAge, bool $secure): string
+    {
+        $line = "{$this->value}=" . rawurlencode($value)
+            . "; Path={$path}"
+            . "; SameSite={$sameSite->value}"
+            . '; HttpOnly';
+
+        if ($maxAge !== null) {
+            $line .= "; Max-Age={$maxAge}";
+        }
+
+        if ($secure) {
+            $line .= '; Secure';
+        }
+
+        return $line;
+    }
 }

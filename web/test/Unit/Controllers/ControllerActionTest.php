@@ -13,10 +13,15 @@ use Vwork\Web\Test\Stubs\ControllerStub;
 
 final class ControllerActionTest extends TestCase
 {
+    private static function controller(): ControllerStub
+    {
+        return new ControllerStub();
+    }
+
     #[Test]
     public function verify_accepts_a_marked_action_with_the_right_shape(): void
     {
-        ControllerAction::verify(new ControllerStub(), 'index');
+        ControllerAction::verify(self::controller(), 'index');
 
         $this->addToAssertionCount(1); // no exception
     }
@@ -30,6 +35,6 @@ final class ControllerActionTest extends TestCase
     public function verify_rejects_anything_else(string $method): void
     {
         $this->expectException(ControllerError::class);
-        ControllerAction::verify(new ControllerStub(), $method);
+        ControllerAction::verify(self::controller(), $method);
     }
 }

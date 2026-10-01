@@ -8,52 +8,68 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Vwork\Web\Http\Headers\HttpHeaderList;
-use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\RequestHeaders;
+use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\WebError;
 
+/**
+ * Set/get/iterate rules are shared, so they're tested on the response side
+ * (the side the app writes to). fromServer covers the request side.
+ */
 final class HttpHeaderListTest extends TestCase
 {
+    /**
+     * @return HttpHeaderList<ResponseHeaders>
+     */
+    private static function empty(): HttpHeaderList
+    {
+        return HttpHeaderList::fromArray([]);
+    }
+
     #[Test]
     public function single_value_headers_replace_on_set(): void
     {
-        $list = new HttpHeaderList();
-        $list[HttpHeaders::ContentType] = 'text/plain';
-        $list[HttpHeaders::ContentType] = 'text/html';
+        $list = self::empty();
+        $list[ResponseHeaders::ContentType] = 'text/plain';
+        $list[ResponseHeaders::ContentType] = 'text/html';
 
-        $this->assertSame('text/html', $list[HttpHeaders::ContentType]);
+        $this->assertSame('text/html', $list[ResponseHeaders::ContentType]);
         $this->assertSame(['Content-Type' => ['text/html']], $list->list);
     }
 
     #[Test]
-    public function list_headers_append_on_set(): void
+    #[TestWith([ResponseHeaders::CacheControl, 'no-store', 'private'])]
+    #[TestWith([ResponseHeaders::Vary, 'Accept', 'Cookie'])]
+    #[TestWith([ResponseHeaders::Allow, 'GET', 'POST'])]
+    public function list_headers_append_on_set(ResponseHeaders $header, string $first, string $second): void
     {
-        $list = new HttpHeaderList();
-        $list[HttpHeaders::CacheControl] = 'no-store';
-        $list[HttpHeaders::CacheControl] = 'private';
+        $list = self::empty();
+        $list[$header] = $first;
+        $list[$header] = $second;
 
-        $this->assertSame(['no-store', 'private'], $list[HttpHeaders::CacheControl]);
+        $this->assertSame([$first, $second], $list[$header]);
     }
 
     #[Test]
     public function missing_headers_read_as_null_and_do_not_exist(): void
     {
-        $list = new HttpHeaderList();
+        $list = self::empty();
 
-        $this->assertNull($list[HttpHeaders::Location]);
-        $this->assertFalse(isset($list[HttpHeaders::Location]));
+        $this->assertNull($list[ResponseHeaders::Location]);
+        $this->assertFalse(isset($list[ResponseHeaders::Location]));
     }
 
     #[Test]
     public function unset_removes_every_value(): void
     {
-        $list = new HttpHeaderList();
-        $list[HttpHeaders::CacheControl] = 'no-store';
-        $list[HttpHeaders::CacheControl] = 'private';
+        $list = self::empty();
+        $list[ResponseHeaders::CacheControl] = 'no-store';
+        $list[ResponseHeaders::CacheControl] = 'private';
 
-        $this->assertTrue(isset($list[HttpHeaders::CacheControl]));
-        unset($list[HttpHeaders::CacheControl]);
+        $this->assertTrue(isset($list[ResponseHeaders::CacheControl]));
+        unset($list[ResponseHeaders::CacheControl]);
 
-        $this->assertFalse(isset($list[HttpHeaders::CacheControl]));
+        $this->assertFalse(isset($list[ResponseHeaders::CacheControl]));
         $this->assertSame([], $list->list);
     }
 
@@ -64,19 +80,19 @@ final class HttpHeaderListTest extends TestCase
     #[TestWith(["/jobs\0"])]
     public function rejects_values_that_could_split_the_header(string $value): void
     {
-        $list = new HttpHeaderList();
+        $list = self::empty();
 
         $this->expectException(WebError::class);
-        $list[HttpHeaders::Location] = $value;
+        $list[ResponseHeaders::Location] = $value;
     }
 
     #[Test]
     public function to_lines_emits_one_line_per_value(): void
     {
-        $list = new HttpHeaderList();
-        $list[HttpHeaders::ContentType] = 'text/html';
-        $list[HttpHeaders::CacheControl] = 'no-store';
-        $list[HttpHeaders::CacheControl] = 'private';
+        $list = self::empty();
+        $list[ResponseHeaders::ContentType] = 'text/html';
+        $list[ResponseHeaders::CacheControl] = 'no-store';
+        $list[ResponseHeaders::CacheControl] = 'private';
 
         $this->assertSame(
             ['Content-Type: text/html', 'Cache-Control: no-store', 'Cache-Control: private'],
@@ -87,9 +103,9 @@ final class HttpHeaderListTest extends TestCase
     #[Test]
     public function iterates_with_enum_keys(): void
     {
-        $list = new HttpHeaderList();
-        $list[HttpHeaders::ContentType] = 'text/html';
-        $list[HttpHeaders::Allow] = 'GET';
+        $list = self::empty();
+        $list[ResponseHeaders::ContentType] = 'text/html';
+        $list[ResponseHeaders::Allow] = 'GET';
 
         $seen = [];
         foreach ($list as $header => $values) {
@@ -97,9 +113,20 @@ final class HttpHeaderListTest extends TestCase
         }
 
         $this->assertSame([
-            [HttpHeaders::ContentType, ['text/html']],
-            [HttpHeaders::Allow, ['GET']],
+            [ResponseHeaders::ContentType, ['text/html']],
+            [ResponseHeaders::Allow, ['GET']],
         ], $seen);
+    }
+
+    #[Test]
+    public function request_lists_iterate_with_request_enum_keys(): void
+    {
+        $list = HttpHeaderList::fromServer(['HTTP_ORIGIN' => 'https://vwork.test']);
+
+        foreach ($list as $header => $values) {
+            $this->assertSame(RequestHeaders::Origin, $header);
+            $this->assertSame(['https://vwork.test'], $values);
+        }
     }
 
     /**
@@ -111,6 +138,8 @@ final class HttpHeaderListTest extends TestCase
     // CGI puts these two in $_SERVER without the HTTP_ prefix
     #[TestWith([['CONTENT_TYPE' => 'application/json', 'CONTENT_LENGTH' => '42'], ['Content-Type' => ['application/json'], 'Content-Length' => ['42']]])]
     #[TestWith([['HTTP_CONTENT_TYPE' => 'application/json'], []])]
+    // dashes become underscores, case follows the enum value
+    #[TestWith([['HTTP_X_CSRF_TOKEN' => 'tok', 'HTTP_HOST' => 'vwork.test', 'HTTP_ORIGIN' => 'https://vwork.test'], ['X-CSRF-Token' => ['tok'], 'Host' => ['vwork.test'], 'Origin' => ['https://vwork.test']]])]
     // unknown headers, non-header keys, and response-only headers are ignored
     #[TestWith([['HTTP_X_MADE_UP' => 'x', 'SERVER_NAME' => 'localhost', 'HTTP_LOCATION' => '/x'], []])]
     // list headers split on commas, trimmed, empties dropped
@@ -129,6 +158,15 @@ final class HttpHeaderListTest extends TestCase
     }
 
     #[Test]
+    public function from_server_returns_a_single_value_for_non_list_headers(): void
+    {
+        $list = HttpHeaderList::fromServer(['HTTP_X_CSRF_TOKEN' => 'tok', 'HTTP_ACCEPT' => 'text/html']);
+
+        $this->assertSame('tok', $list[RequestHeaders::XCsrfToken]);
+        $this->assertSame(['text/html'], $list[RequestHeaders::Accept]);
+    }
+
+    #[Test]
     public function from_array_applies_the_same_rules_as_set(): void
     {
         $list = HttpHeaderList::fromArray([
@@ -136,8 +174,8 @@ final class HttpHeaderListTest extends TestCase
             'Cache-Control' => ['no-store', 'private'],
         ]);
 
-        $this->assertSame('text/html', $list[HttpHeaders::ContentType]);
-        $this->assertSame(['no-store', 'private'], $list[HttpHeaders::CacheControl]);
+        $this->assertSame('text/html', $list[ResponseHeaders::ContentType]);
+        $this->assertSame(['no-store', 'private'], $list[ResponseHeaders::CacheControl]);
     }
 
     #[Test]
@@ -145,5 +183,13 @@ final class HttpHeaderListTest extends TestCase
     {
         $this->expectException(WebError::class);
         HttpHeaderList::fromArray(['Location' => ["/x\r\nX: y"]]);
+    }
+
+    #[Test]
+    public function from_array_rejects_request_only_headers(): void
+    {
+        $this->expectException(\ValueError::class);
+        /** @phpstan-ignore argument.type */
+        HttpHeaderList::fromArray(['Authorization' => ['Bearer x']]);
     }
 }

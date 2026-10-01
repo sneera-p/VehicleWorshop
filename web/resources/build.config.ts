@@ -1,4 +1,7 @@
-// web/resources/build.config.ts
+/// web/resources/build.config.ts
+/// <reference types="node" />
+/// <reference types="bun" />
+
 import { mkdir } from "node:fs/promises";
 import { watch } from "node:fs";
 import { fileURLToPath } from "node:url";
