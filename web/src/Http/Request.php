@@ -8,6 +8,7 @@ use Vwork\Shared\Types\Cast;
 use Vwork\Web\WebException;
 use Vwork\Web\Http\Headers\HttpHeaderList;
 use Vwork\Web\Http\Cookies\RequestCookieList;
+use Vwork\Web\Http\Headers\RequestHeaders;
 
 /**
  * What came in.
@@ -23,6 +24,7 @@ use Vwork\Web\Http\Cookies\RequestCookieList;
 final class Request
 {
     /**
+     * @param HttpHeaderList<RequestHeaders> $headers
      * @param array<string, string> $query
      * @param array<string, string> $formData
      * @param array<string, UploadedFile> $files

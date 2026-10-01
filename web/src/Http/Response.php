@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Vwork\Web\Http;
 
 use Closure;
-use Override;
 use Vwork\Web\WebError;
-use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\Headers\HttpHeaderList;
 use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\Http\Cookies\ResponseCookieList;
-use Vwork\Web\Http\Cookies\CookieSameSite;
+use Vwork\Web\Http\Cookies\CookieSitePolicies;
+use Vwork\Web\Http\Headers\ResponseHeaders;
 
 /**
  * What goes out.
@@ -29,6 +28,7 @@ final class Response
     public private(set) ResponseCookieList $cookies;
 
     /**
+     * @param HttpHeaderList<ResponseHeaders> $headers
      * @param Closure(): void $sender
      */
     private function __construct(
@@ -44,7 +44,7 @@ final class Response
      * What every named constructor below delegates to. Wraps $body in a
      * closure that echoes it at send() time.
      *
-     * @param array<value-of<HttpHeaders>, list<string>> $headers
+     * @param array<value-of<ResponseHeaders>, list<string>> $headers
      */
     public static function make(string $body, array $headers, HttpStatus $status): self
     {
@@ -66,7 +66,7 @@ final class Response
     {
         return self::make(
             $data,
-            [HttpHeaders::ContentType->value => ['text/html; charset=utf-8']],
+            [ResponseHeaders::ContentType->value => ['text/html; charset=utf-8']],
             $status
         );
     }
@@ -80,7 +80,7 @@ final class Response
     {
         return self::make(
             $data,
-            [HttpHeaders::ContentType->value => ['text/plain; charset=utf-8']],
+            [ResponseHeaders::ContentType->value => ['text/plain; charset=utf-8']],
             $status
         );
     }
@@ -94,7 +94,7 @@ final class Response
     {
         return self::make(
             json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS),
-            [HttpHeaders::ContentType->value => ['application/json; charset=utf-8']],
+            [ResponseHeaders::ContentType->value => ['application/json; charset=utf-8']],
             $status
         );
     }
@@ -108,7 +108,7 @@ final class Response
     {
         return self::make(
             cbor_encode($data, CBOR_TEXT | CBOR_KEY_TEXT),
-            [HttpHeaders::ContentType->value => ['application/cbor']],
+            [ResponseHeaders::ContentType->value => ['application/cbor']],
             $status
         );
     }
@@ -117,7 +117,7 @@ final class Response
      * For bodies that aren't one known string up front — SSE, chunked output.
      *
      * @param Closure(): void $emit - does all the writing itself; nothing here buffers it.
-     * @param array<value-of<HttpHeaders>, list<string>> $headers
+     * @param array<value-of<ResponseHeaders>, list<string>> $headers
      */
     public static function stream(Closure $emit, array $headers): self
     {
@@ -147,11 +147,11 @@ final class Response
         $ascii = addcslashes(preg_replace('/[^\x20-\x7E]/', '_', $name) ?? 'download', '"\\');
 
         $headers = [
-            HttpHeaders::ContentType->value => ['application/octet-stream'],
-            HttpHeaders::ContentDisposition->value => [
+            ResponseHeaders::ContentType->value => ['application/octet-stream'],
+            ResponseHeaders::ContentDisposition->value => [
                 "attachment; filename=\"{$ascii}\"; filename*=UTF-8''" . rawurlencode($name),
             ],
-            HttpHeaders::ContentLength->value => [(string) $size],
+            ResponseHeaders::ContentLength->value => [(string) $size],
         ];
 
         return new self(
@@ -172,7 +172,7 @@ final class Response
     {
         return self::make(
             '',
-            [HttpHeaders::Location->value => [$path]],
+            [ResponseHeaders::Location->value => [$path]],
             $status
         );
     }
@@ -185,7 +185,7 @@ final class Response
         $allow = implode(', ', array_map(static fn (HttpMethods $m) => $m->value, $allowed));
         return self::make(
             '',
-            [HttpHeaders::Allow->value => [$allow]],
+            [ResponseHeaders::Allow->value => [$allow]],
             HttpStatus::MethodNotAllowed
         );
     }
@@ -213,51 +213,24 @@ final class Response
     }
 
 
-    public function addHeader(HttpHeaders $header, string $value): self
+    public function addHeader(ResponseHeaders $header, string $value): self
     {
-        if (!$header->isResponseHeader()) {
-            throw new WebError("Header {$header->value} cannot be attached to Http Response");
-        }
-
-        if ($header === HttpHeaders::SetCookie) {
-            throw new WebError("Prohibited: Use addCookie(...)");
-        }
-
         $this->headers[$header] = $value;
         return $this;
     }
 
-    public function rmHeader(HttpHeaders $header): self
+    public function rmHeader(ResponseHeaders $header): self
     {
         unset($this->headers[$header]);
         return $this;
     }
 
-
     /**
-     * Queues a Set-Cookie line. Appends rather than replaces —
-     * Set-Cookie repeats on the wire, one line per cookie.
+     * Queues a Set-Cookie line
      */
-    public function addCookie(
-        HttpCookies $name,
-        string $value,
-        bool $secure = true,
-        string $path = '/',
-        bool $httpOnly = true,
-        CookieSameSite $sameSite = CookieSameSite::Lax,
-        ?int $maxAge = null,
-        ?string $domain = null,
-    ): self {
-        $this->cookies->add(
-            $name,
-            $value,
-            $secure,
-            $path,
-            $httpOnly,
-            $sameSite,
-            $maxAge,
-            $domain
-        );
+    public function addCookie(HttpCookies $key, string $value, string $path = '/', CookieSitePolicies $sameSite = CookieSitePolicies::Lax, ?int $maxAge = null): self
+    {
+        $this->cookies->add($key, $value, $path, $sameSite, $maxAge);
         return $this;
     }
 
@@ -273,12 +246,12 @@ final class Response
 
     /**
      * Asks the browser to drop a cookie it holds, by sending an already-
-     * expired one. $path and $domain must match what it was set with, or
+     * expired one. $path must match what it was set with, or
      * the browser sees a different cookie and ignores this.
      */
-    public function expireCookie(HttpCookies $name, string $path = '/', ?string $domain = null): self
+    public function expireCookie(HttpCookies $name, string $path = '/'): self
     {
-        $this->cookies->expire($name, $path, $domain);
+        $this->cookies->expire($name, $path);
         return $this;
     }
 
@@ -288,7 +261,7 @@ final class Response
      * Everything upstream builds a Response as plain data; the actual
      * response emitting happens here.
      */
-    public function send(): void
+    public function send(bool $secure): void
     {
         http_response_code($this->status->value);
 
@@ -296,7 +269,7 @@ final class Response
             header($line, replace: false);
         }
 
-        foreach ($this->cookies->toLines() as $line) {
+        foreach ($this->cookies->toLines($secure) as $line) {
             header($line, replace: false);
         }
 

@@ -7,7 +7,7 @@ namespace Vwork\Web\Test\Unit\Http\Cookies;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
-use Vwork\Web\Http\Cookies\CookieSameSite;
+use Vwork\Web\Http\Cookies\CookieSitePolicies;
 use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\Http\Cookies\ResponseCookieList;
 use Vwork\Web\WebError;
@@ -17,9 +17,9 @@ final class ResponseCookieListTest extends TestCase
     /**
      * @return list<string>
      */
-    private static function lines(ResponseCookieList $list): array
+    private static function lines(ResponseCookieList $list, bool $secure = true): array
     {
-        return iterator_to_array($list->toLines(), false);
+        return iterator_to_array($list->toLines($secure), false);
     }
 
     /**
@@ -27,13 +27,11 @@ final class ResponseCookieListTest extends TestCase
      */
     #[Test]
     #[TestWith([[], 'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure'])]
-    #[TestWith([['secure' => false], 'session_token=abc; Path=/; SameSite=Lax; HttpOnly'])]
-    #[TestWith([['httpOnly' => false], 'session_token=abc; Path=/; SameSite=Lax; Secure'])]
-    #[TestWith([['maxAge' => 0], 'session_token=abc; Path=/; SameSite=Lax; Max-Age=0; HttpOnly; Secure'])]
-    #[TestWith([['sameSite' => CookieSameSite::None], 'session_token=abc; Path=/; SameSite=None; HttpOnly; Secure'])]
+    #[TestWith([['maxAge' => 0], 'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Max-Age=0; Secure'])]
+    #[TestWith([['sameSite' => CookieSitePolicies::None], 'session_token=abc; Path=/; SameSite=None; HttpOnly; Secure'])]
     #[TestWith([
-        ['path' => '/app', 'sameSite' => CookieSameSite::Strict, 'maxAge' => 3600, 'domain' => 'example.com'],
-        'session_token=abc; Path=/app; SameSite=Strict; Domain=example.com; Max-Age=3600; HttpOnly; Secure',
+        ['path' => '/auth', 'sameSite' => CookieSitePolicies::Strict, 'maxAge' => 3600],
+        'session_token=abc; Path=/auth; SameSite=Strict; HttpOnly; Max-Age=3600; Secure',
     ])]
     public function renders_the_set_cookie_line(array $opts, string $expected): void
     {
@@ -42,6 +40,17 @@ final class ResponseCookieListTest extends TestCase
         $list->add(HttpCookies::SessionToken, 'abc', ...$opts);
 
         $this->assertSame([$expected], self::lines($list));
+    }
+
+    #[Test]
+    public function secure_is_decided_at_send_time(): void
+    {
+        $list = new ResponseCookieList();
+        $list->add(HttpCookies::SessionToken, 'abc');
+
+        // same list, two answers: the flag belongs to the app, not the cookie
+        $this->assertSame(['session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure'], self::lines($list, true));
+        $this->assertSame(['session_token=abc; Path=/; SameSite=Lax; HttpOnly'], self::lines($list, false));
     }
 
     #[Test]
@@ -61,7 +70,7 @@ final class ResponseCookieListTest extends TestCase
     {
         $list = new ResponseCookieList();
         $list->add(HttpCookies::SessionToken, 'first');
-        $list->add(HttpCookies::CsrfToken, 'xyz');
+        $list->add(HttpCookies::RefreshToken, 'xyz');
         $list->add(HttpCookies::SessionToken, 'second');
 
         $this->assertCount(2, self::lines($list));
@@ -73,44 +82,56 @@ final class ResponseCookieListTest extends TestCase
     {
         $list = new ResponseCookieList();
         $list->add(HttpCookies::SessionToken, 'abc');
-        $list->add(HttpCookies::CsrfToken, 'xyz');
+        $list->add(HttpCookies::RefreshToken, 'xyz');
 
         $list->rm(HttpCookies::SessionToken);
-        $list->rm(HttpCookies::RefreshToken); // never added: no-op
+        $list->rm(HttpCookies::SessionToken); // already gone: no-op
 
         $this->assertFalse(isset($list[HttpCookies::SessionToken]));
         $this->assertNull($list[HttpCookies::SessionToken]);
-        $this->assertSame('xyz', $list[HttpCookies::CsrfToken]);
+        $this->assertSame('xyz', $list[HttpCookies::RefreshToken]);
     }
 
     #[Test]
-    #[TestWith(['/', null, 'session_token=; Path=/; SameSite=Lax; Max-Age=0; HttpOnly; Secure'])]
-    #[TestWith(['/app', 'example.com', 'session_token=; Path=/app; SameSite=Lax; Domain=example.com; Max-Age=0; HttpOnly; Secure'])]
-    public function expire_sends_an_empty_zero_max_age_cookie(string $path, ?string $domain, string $expected): void
+    #[TestWith(['/', 'session_token=; Path=/; SameSite=Lax; HttpOnly; Max-Age=0; Secure'])]
+    #[TestWith(['/auth', 'session_token=; Path=/auth; SameSite=Lax; HttpOnly; Max-Age=0; Secure'])]
+    public function expire_sends_an_empty_zero_max_age_cookie(string $path, string $expected): void
     {
         $list = new ResponseCookieList();
-        $list->expire(HttpCookies::SessionToken, $path, $domain);
+        $list->expire(HttpCookies::SessionToken, $path);
 
         $this->assertSame([$expected], self::lines($list));
     }
 
     #[Test]
-    #[TestWith(['/a;b', null])]
-    #[TestWith(['/a b', null])]
-    #[TestWith(["/a\r\nX: y", null])]
-    #[TestWith(['/', 'example.com; Max-Age=999'])]
-    #[TestWith(['/', 'a,b.com'])]
-    public function rejects_a_path_or_domain_that_could_inject_attributes(string $path, ?string $domain): void
+    public function expire_replaces_a_cookie_added_earlier(): void
     {
-        $this->expectException(WebError::class);
-        (new ResponseCookieList())->add(HttpCookies::SessionToken, 'abc', path: $path, domain: $domain);
+        $list = new ResponseCookieList();
+        $list->add(HttpCookies::SessionToken, 'abc', maxAge: 3600);
+        $list->expire(HttpCookies::SessionToken);
+
+        $this->assertSame(['session_token=; Path=/; SameSite=Lax; HttpOnly; Max-Age=0; Secure'], self::lines($list));
     }
 
     #[Test]
-    public function rejects_same_site_none_without_secure(): void
+    #[TestWith(['/a;b'])]         // would start a new attribute
+    #[TestWith(['/a,b'])]
+    #[TestWith(['/a b'])]
+    #[TestWith(["/a\r\nX: y"])]   // would split the header
+    #[TestWith(["/a\0"])]
+    #[TestWith(['auth'])]         // must start with /
+    #[TestWith([''])]
+    public function rejects_a_path_that_could_inject_attributes(string $path): void
     {
         $this->expectException(WebError::class);
-        (new ResponseCookieList())->add(HttpCookies::SessionToken, 'abc', secure: false, sameSite: CookieSameSite::None);
+        (new ResponseCookieList())->add(HttpCookies::SessionToken, 'abc', path: $path);
+    }
+
+    #[Test]
+    public function rejects_a_negative_max_age(): void
+    {
+        $this->expectException(WebError::class);
+        (new ResponseCookieList())->add(HttpCookies::SessionToken, 'abc', maxAge: -1);
     }
 
     #[Test]

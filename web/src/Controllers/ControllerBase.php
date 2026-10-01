@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Vwork\Web\Controllers;
 
 use Closure;
+use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\Http\HttpStatus;
-use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\ResponseHeaders;
+use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
+use Vwork\Web\Utils\CsrfToken;
 use Vwork\Web\Utils\View;
 
 /**
@@ -18,31 +21,43 @@ use Vwork\Web\Utils\View;
  *
  * @author Senira <senirahan@gmail.com>
  */
-abstract class ControllerBase implements IController
+abstract readonly class ControllerBase implements IController
 {
+    public function __construct(
+        private View $view,
+        private CsrfToken $csrf
+    ) {
+    }
+
     /**
      * Renders $template into an HTML response, optionally wrapped in $layout.
      *
-     * The template receives all of $data as local variables.
+     * The template receives all of $data as local variables, plus 'csrf':
+     * a token for this session, for the form's hidden _csrf field.
      *
-     * The layout receives only two:
+     * The layout receives only three:
      *  - 'content' (the rendered template)
      *  - 'title' (defaults to 'No Title')
+     *  - 'csrf' (for the <meta> tag that fetch() reads)
      *
-     * @param string $template - view to render, relative to VIEW_PATH
+     * @param string $template - view to render, relative to the views folder
      * @param array<string, mixed> $data - the template's local variables.
      *     ('title', if present, is also passed to the layout)
      * @param ?string $layout - wrapping view; must echo $content and $title.
      *     (null sends the template on its own)
      */
-    protected static function view(string $template, array $data = [], ?string $layout = null, HttpStatus $status = HttpStatus::Ok): Response
+    protected function view(Request $request, string $template, array $data = [], ?string $layout = null, HttpStatus $status = HttpStatus::Ok): Response
     {
-        $html = View::render($template, $data);
+        // no session yet (login page) still gets a token; SameOriginMiddleware guards that case
+        $csrf = $this->csrf->create($request->cookies[HttpCookies::SessionToken] ?? '');
+
+        $html = $this->view->render($template, [...$data, 'csrf' => $csrf]);
 
         if ($layout !== null) {
-            $html = View::render($layout, [
+            $html = $this->view->render($layout, [
                 'content' => $html,
                 'title' => $data['title'] ?? 'No Title',
+                'csrf' => $csrf,
             ]);
         }
 
@@ -55,7 +70,7 @@ abstract class ControllerBase implements IController
      * @param array<string, mixed> $data
      * @param list<string> $accept
      */
-    protected static function payload(array $data, array $accept, HttpStatus $status = HttpStatus::Ok): Response
+    protected function payload(array $data, array $accept, HttpStatus $status = HttpStatus::Ok): Response
     {
         $response = match (self::negotiatePayloadType($accept)) {
             'application/json' => Response::json($data, $status),
@@ -63,7 +78,7 @@ abstract class ControllerBase implements IController
             null => Response::error(HttpStatus::NotAcceptable, 'Supported: application/json, application/cbor'),
         };
 
-        return $response->addHeader(HttpHeaders::Vary, 'Accept');
+        return $response->addHeader(ResponseHeaders::Vary, 'Accept');
     }
 
     /**
@@ -75,7 +90,7 @@ abstract class ControllerBase implements IController
      *
      * @param Closure(Closure(string $event, array<string, mixed> $data): void $emit): void $source
      */
-    protected static function sse(Closure $source): Response
+    protected function sse(Closure $source): Response
     {
         return Response::stream(
             static function () use ($source): void {
@@ -86,13 +101,12 @@ abstract class ControllerBase implements IController
                 });
             },
             [
-                HttpHeaders::ContentType->value => ['text/event-stream; charset=utf-8'],
-                HttpHeaders::CacheControl->value => ['no-cache'],
-                HttpHeaders::XAccelBuffering->value => ['no'],
+                ResponseHeaders::ContentType->value => ['text/event-stream; charset=utf-8'],
+                ResponseHeaders::CacheControl->value => ['no-cache'],
+                ResponseHeaders::XAccelBuffering->value => ['no'],
             ],
         );
     }
-
 
     /**
      * Picks the client's most preferred supported type: highest q wins,

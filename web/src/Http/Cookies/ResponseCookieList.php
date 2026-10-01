@@ -9,25 +9,19 @@ use Override;
 use Vwork\Web\WebError;
 
 /**
- * Cookies the response will set, one Set-Cookie line each.
- * Values are URL-encoded here and decoded by RequestCookies.
+ * Cookies the response will set, one Set-Cookie line each..
  *
  * @implements ArrayAccess<HttpCookies, string>
  */
 final class ResponseCookieList implements ArrayAccess
 {
-    /** @var array<
-     *    value-of<HttpCookies>,
-     *    array{
-     *      value: string,
-     *      secure: bool,
-     *      path: string,
-     *      httpOnly: bool,
-     *      sameSite: CookieSameSite,
-     *      maxAge: int|null,
-     *      domain: string|null
-     *    }
-     *  >
+    /**
+     * @var array<value-of<HttpCookies>, array{
+     *  value: string,
+     *  path: string,
+     *  sameSite: CookieSitePolicies,
+     *  maxAge: int|null,
+     * }>
      */
     public private(set) array $list = [];
 
@@ -62,39 +56,21 @@ final class ResponseCookieList implements ArrayAccess
         throw new WebError('Prohibited: Use rm(...)');
     }
 
-    /**
-     * @throws WebError on an invalid path/domain, or SameSite=None without Secure
-     */
-    public function add(
-        HttpCookies $key,
-        string $value,
-        bool $secure = true,
-        string $path = '/',
-        bool $httpOnly = true,
-        CookieSameSite $sameSite = CookieSameSite::Lax,
-        ?int $maxAge = null,
-        ?string $domain = null,
-    ): void {
-        if (strpbrk($path, ";,\r\n\0 ") !== false) {
-            throw new WebError("Cookie Path: $path is invalid");
+    public function add(HttpCookies $key, string $value, string $path = '/', CookieSitePolicies $sameSite = CookieSitePolicies::Lax, ?int $maxAge = null): void
+    {
+        if (strpbrk($path, ";,\r\n\0 ") !== false || !str_starts_with($path, '/')) {
+            throw new WebError("Invalid cookie path: {$path}");
         }
 
-        if ($domain !== null && strpbrk($domain, ";,\r\n\0 ") !== false) {
-            throw new WebError("Cookie Domain: $domain is invalid");
-        }
-
-        if ($sameSite === CookieSameSite::None && !$secure) {
-            throw new WebError('SameSite=None requires Secure');
+        if ($maxAge !== null && $maxAge < 0) {
+            throw new WebError('Cookie Max-Age cannot be negative');
         }
 
         $this->list[$key->value] = [
             'value' => $value,
-            'secure' => $secure,
             'path' => $path,
-            'httpOnly' => $httpOnly,
             'sameSite' => $sameSite,
-            'maxAge' => $maxAge,
-            'domain' => $domain,
+            'maxAge' => $maxAge
         ];
     }
 
@@ -104,50 +80,27 @@ final class ResponseCookieList implements ArrayAccess
     }
 
     /**
-     * Tells the browser to delete a cookie. Path and domain must match
+     * Tells the browser to delete a cookie. Path must match
      * what it was set with, or the browser keeps the original.
      */
-    public function expire(HttpCookies $key, string $path = '/', ?string $domain = null): void
+    public function expire(HttpCookies $key, string $path = '/'): void
     {
-        $this->add(
-            key: $key,
-            value: '',
-            path: $path,
-            maxAge: 0,
-            domain: $domain
-        );
+        $this->add($key, '', $path, maxAge: 0);
     }
 
     /**
      * @return iterable<string>
      */
-    public function toLines(): iterable
+    public function toLines(bool $secure): iterable
     {
-        foreach ($this->list as $name => [
-            'value' => $value,
-            'secure' => $secure,
-            'path' => $path,
-            'httpOnly' => $httpOnly,
-            'sameSite' => $sameSite,
-            'maxAge' => $maxAge,
-            'domain' => $domain,
-        ]) {
-            $line = "{$name}=" . rawurlencode($value) . "; Path={$path}; SameSite={$sameSite->value}";
-
-            if ($domain !== null) {
-                $line .= "; Domain={$domain}";
-            }
-            if ($maxAge !== null) {
-                $line .= "; Max-Age={$maxAge}";
-            }
-            if ($httpOnly) {
-                $line .= '; HttpOnly';
-            }
-            if ($secure) {
-                $line .= '; Secure';
-            }
-
-            yield $line;
+        foreach ($this->list as $name => $settings) {
+            yield HttpCookies::from($name)->toLine(
+                value: $settings['value'],
+                path: $settings['path'],
+                sameSite: $settings['sameSite'],
+                maxAge: $settings['maxAge'],
+                secure: $secure
+            );
         }
     }
 }

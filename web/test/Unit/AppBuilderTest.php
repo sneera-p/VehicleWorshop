@@ -9,16 +9,16 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Vwork\Shared\Exception\VworkError;
 use Vwork\Web\AppBuilder;
-use Vwork\Web\IAppBuilder;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Middleware\IMiddleware;
+use Vwork\Web\Router\RouterTypes;
 use Vwork\Web\Test\Stubs\ControllerStub;
 use Vwork\Web\Test\Stubs\MiddlewareStub;
 use Vwork\Web\WebError;
 
 /**
- * @phpstan-import-type RouteConfig from IAppBuilder
+ * @phpstan-import-type RouteConfig from AppBuilder
  */
 final class AppBuilderTest extends TestCase
 {
@@ -44,6 +44,7 @@ final class AppBuilderTest extends TestCase
         $builder->addControllers([ControllerStub::class => static fn () => new ControllerStub()]);
         $builder->addMiddleware([MiddlewareStub::class => static fn () => new MiddlewareStub()]);
         $builder->addRoutes([self::route('/jobs', [MiddlewareStub::class])]);
+        $builder->withRouter(RouterTypes::Trie);
 
         $request = new ReflectionClass(Request::class)->newInstanceWithoutConstructor();
         new ReflectionClass(Request::class)->getProperty('method')->setValue($request, HttpMethods::GET);
@@ -52,7 +53,7 @@ final class AppBuilderTest extends TestCase
         $response = $builder->build()->handleRequest($request);
 
         $this->expectOutputString('index');
-        $response->send();
+        $response->send(true);
     }
 
     #[Test]

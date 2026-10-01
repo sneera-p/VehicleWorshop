@@ -7,15 +7,16 @@ namespace Vwork\Web\Test\Unit\Http;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
+use Vwork\Web\Http\Cookies\CookieSitePolicies;
 use Vwork\Web\Http\Cookies\HttpCookies;
-use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Response;
 use Vwork\Web\WebError;
 
 /**
- * Response's own behaviour: factories, header guards, and delegation to
+ * Response's own behaviour: factories, headers, and delegation to
  * its cookie list. Set-Cookie rendering is covered by ResponseCookieListTest.
  */
 final class ResponseTest extends TestCase
@@ -57,7 +58,7 @@ final class ResponseTest extends TestCase
         $this->assertSame($headers, $response->headers->list);
 
         $this->expectOutputString($body);
-        $response->send();
+        $response->send(true);
     }
 
     #[Test]
@@ -81,7 +82,7 @@ final class ResponseTest extends TestCase
         $response = Response::cbor(['name' => 'x']);
 
         ob_start();
-        $response->send();
+        $response->send(true);
         $body = (string) ob_get_clean();
 
         // map(1), then major type 3 (text, 0x6_) — byte strings would be major type 2 (0x4_)
@@ -110,7 +111,7 @@ final class ResponseTest extends TestCase
         $this->assertSame(['Content-Type' => ['text/event-stream']], $response->headers->list);
 
         $this->expectOutputString("data: a\n\n");
-        $response->send();
+        $response->send(true);
         $this->assertSame(1, $calls);
     }
 
@@ -135,7 +136,7 @@ final class ResponseTest extends TestCase
             ], $response->headers->list);
 
             $this->expectOutputString($contents);
-            $response->send();
+            $response->send(true);
         } finally {
             unlink($path);
         }
@@ -164,21 +165,11 @@ final class ResponseTest extends TestCase
     {
         $response = Response::html('x');
 
-        $this->assertSame($response, $response->addHeader(HttpHeaders::CacheControl, 'no-store'));
-        $this->assertSame(['no-store'], $response->headers[HttpHeaders::CacheControl]);
+        $this->assertSame($response, $response->addHeader(ResponseHeaders::CacheControl, 'no-store'));
+        $this->assertSame(['no-store'], $response->headers[ResponseHeaders::CacheControl]);
 
-        $this->assertSame($response, $response->rmHeader(HttpHeaders::CacheControl));
+        $this->assertSame($response, $response->rmHeader(ResponseHeaders::CacheControl));
         $this->assertSame(self::HTML, $response->headers->list);
-    }
-
-    #[Test]
-    #[TestWith([HttpHeaders::Authorization])] // request-only
-    #[TestWith([HttpHeaders::Cookie])]        // request-only
-    #[TestWith([HttpHeaders::SetCookie])]     // must go through the cookie methods
-    public function add_header_refuses_headers_that_do_not_belong_on_a_response(HttpHeaders $header): void
-    {
-        $this->expectException(WebError::class);
-        Response::html('x')->addHeader($header, 'v');
     }
 
     #[Test]
@@ -187,14 +178,31 @@ final class ResponseTest extends TestCase
         $response = Response::noContent();
 
         $this->assertSame($response, $response->addCookie(HttpCookies::SessionToken, 'abc'));
-        $this->assertSame($response, $response->addCookie(HttpCookies::CsrfToken, 'xyz'));
-        $this->assertSame($response, $response->rmCookie(HttpCookies::CsrfToken));
+        $this->assertSame($response, $response->addCookie(HttpCookies::RefreshToken, 'xyz', path: '/auth'));
+        $this->assertSame($response, $response->rmCookie(HttpCookies::RefreshToken));
         $this->assertSame($response, $response->expireCookie(HttpCookies::RefreshToken, '/auth'));
 
         $this->assertSame([
             'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure',
-            'refresh_token=; Path=/auth; SameSite=Lax; Max-Age=0; HttpOnly; Secure',
-        ], iterator_to_array($response->cookies->toLines(), false));
+            'refresh_token=; Path=/auth; SameSite=Lax; HttpOnly; Max-Age=0; Secure',
+        ], iterator_to_array($response->cookies->toLines(true), false));
         $this->assertSame([], $response->headers->list); // cookies never leak into the header list
+    }
+
+    #[Test]
+    public function add_cookie_passes_every_attribute_through(): void
+    {
+        $response = Response::noContent()->addCookie(
+            HttpCookies::RefreshToken,
+            'xyz',
+            path: '/auth',
+            sameSite: CookieSitePolicies::Strict,
+            maxAge: 3600,
+        );
+
+        $this->assertSame(
+            ['refresh_token=xyz; Path=/auth; SameSite=Strict; HttpOnly; Max-Age=3600; Secure'],
+            iterator_to_array($response->cookies->toLines(true), false),
+        );
     }
 }

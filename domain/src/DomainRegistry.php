@@ -17,21 +17,20 @@ use Vwork\Shared\Collections\Registry;
  * makes sure each closure runs at most once and every later caller gets
  * back the same instance instead of a fresh one.
  *
- * This can be extended by other classes (eg: AppRegistry) or used just as it is
+ * This is to be extended by other classes (eg: AppRegistry)
  *
- * @template-covariant T of object - the interface bindings are written against (eg: IAppRegistry)
+ * @template-covariant T of IDomainRegistry - the interface bindings are written against (eg: IAppRegistry)
  *
  * @author Senira <senirahan@gmail.com>
  */
 abstract class DomainRegistry implements IDomainRegistry
 {
     /** @var Registry<T> */
-    private Registry $registry;
+    protected readonly Registry $registry;
 
     /**
      * @param array<class-string, array<class-string, Closure(T): object>> $bindings
-     * @param list<class-string> $allowedCategories - additional categories a subclass needs
-     *                                                (eg: AppRegistry adding IController / IMiddleware)
+     * @param list<class-string> $allowedCategories - additional categories a subclass needs (eg: AppRegistry adding IController / IMiddleware)
      * @param T $registrar - the owner, passed to every factory
      */
     public function __construct(array $bindings, array $allowedCategories, object $registrar)

@@ -10,7 +10,7 @@ namespace Vwork\Web\Http\Cookies;
  *
  * @author Senira <senirahan@gmail.com>
  */
-enum CookieSameSite: string
+enum CookieSitePolicies: string
 {
     /** Never sent cross-site. Users arriving from an external link land logged out. */
     case Strict = 'Strict';

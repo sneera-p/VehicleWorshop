@@ -30,6 +30,11 @@ final class UploadedFile
     ) {
     }
 
+    public function isOk(): bool
+    {
+        return $this->error === UPLOAD_ERR_OK;
+    }
+
     /**
      * Extract from single-file entry
      *

@@ -10,46 +10,86 @@ use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
+use Random\Randomizer;
 use Vwork\Shared\Types\Cast;
-use Vwork\Web\Http\Headers\HttpHeaders;
+use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\Http\HttpStatus;
+use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
 use Vwork\Web\Test\Stubs\ControllerBaseStub;
+use Vwork\Web\Utils\CsrfToken;
+use Vwork\Web\Utils\View;
 use Vwork\Web\WebError;
 
 final class ControllerBaseTest extends TestCase
 {
-    private string|false $previousViewPath;
+    private const string SECRET = 'q29bvc9tqccb43xZLmmpor2imn7ewqdf2v43x';
+    private const array JSON = ['Content-Type' => ['application/json; charset=utf-8'], 'Vary' => ['Accept']];
+    private const array CBOR = ['Content-Type' => ['application/cbor'], 'Vary' => ['Accept']];
+
+    /** @var array<mixed, mixed> */
+    private array $server;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->previousViewPath = getenv('VIEW_PATH');
-        putenv('VIEW_PATH=web/test/Fixtures/Views');
+        $this->server = $_SERVER;
     }
 
     #[Override]
     protected function tearDown(): void
     {
-        putenv($this->previousViewPath === false ? 'VIEW_PATH' : "VIEW_PATH={$this->previousViewPath}");
+        $_SERVER = $this->server;
         parent::tearDown();
+    }
+
+    private static function csrf(): CsrfToken
+    {
+        return new CsrfToken(self::SECRET, new Randomizer());
+    }
+
+    private static function controller(): ControllerBaseStub
+    {
+        return new ControllerBaseStub(new View('web/test/Fixtures/Views'), self::csrf());
+    }
+
+    private static function request(?string $session = 'sess-1'): Request
+    {
+        $_SERVER = ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/', 'REMOTE_ADDR' => ''];
+        if ($session !== null) {
+            $_SERVER['HTTP_COOKIE'] = "session_token={$session}";
+        }
+
+        return Request::fromGlobals();
     }
 
     private static function body(Response $response): string
     {
         ob_start();
-        $response->send();
+        $response->send(true);
         return (string) ob_get_clean();
+    }
+
+    // ---- view ----
+
+    #[Test]
+    public function view_sends_the_template_on_its_own_without_a_layout(): void
+    {
+        $response = self::controller()->callView(self::request(), 'vars', ['name' => 'Sneze', 'count' => 3]);
+
+        $this->assertSame(HttpStatus::Ok, $response->status);
+        $this->assertSame(['Content-Type' => ['text/html; charset=utf-8']], $response->headers->list);
+        $this->assertSame("Sneze has 3 jobs\n", self::body($response));
     }
 
     #[Test]
     public function view_wraps_the_template_in_the_layout(): void
     {
-        $response = new ControllerBaseStub()->callView('vars', ['name' => 'Sneze', 'count' => 3, 'title' => 'Jobs'], 'layout');
+        $response = self::controller()->callView(self::request(), 'vars', ['name' => 'Sneze', 'count' => 3, 'title' => 'Jobs'], 'lay');
 
-        $this->assertSame(
-            "<title>Jobs</title>\n<main>Sneze has 3 jobs\n</main>\nisolated",
+        $this->assertMatchesRegularExpression(
+            '~^<title>Jobs</title>\n<meta name="csrf-token" content="[A-Za-z0-9_-]{86}">\n<main>Sneze has 3 jobs\n</main>\nisolated$~',
             self::body($response),
         );
     }
@@ -57,37 +97,66 @@ final class ControllerBaseTest extends TestCase
     #[Test]
     public function view_falls_back_to_a_default_title(): void
     {
-        $response = new ControllerBaseStub()->callView('hello', [], 'layout');
+        $response = self::controller()->callView(self::request(), 'hello', [], 'lay');
 
         $this->assertStringStartsWith('<title>No Title</title>', self::body($response));
     }
 
     #[Test]
-    public function view_passes_only_content_and_title_to_the_layout(): void
+    public function view_passes_only_content_title_and_csrf_to_the_layout(): void
     {
-        $response = new ControllerBaseStub()->callView('vars', ['name' => 'Sneze', 'count' => 3], 'layout');
+        $response = self::controller()->callView(self::request(), 'vars', ['name' => 'Sneze', 'count' => 3], 'lay');
 
         $this->assertStringEndsWith('isolated', self::body($response));
     }
 
     #[Test]
+    #[TestWith(['sess-1'])]
+    #[TestWith([null])] // no session yet: still a token, for the empty id
+    public function view_gives_the_template_a_csrf_token_for_this_session(?string $session): void
+    {
+        $token = self::body(self::controller()->callView(self::request($session), 'form'));
+
+        $this->assertTrue(self::csrf()->verify($session ?? '', $token));
+        $this->assertFalse(self::csrf()->verify('another-session', $token));
+    }
+
+    #[Test]
+    public function the_template_and_layout_get_the_same_token(): void
+    {
+        $response = self::controller()->callView(self::request(), 'form', [], 'lay');
+
+        $this->assertMatchesRegularExpression('~content="([^"]+)">\n<main>\1</main>~', self::body($response));
+    }
+
+    #[Test]
+    public function data_cannot_override_the_csrf_token(): void
+    {
+        $token = self::body(self::controller()->callView(self::request(), 'form', ['csrf' => 'forged']));
+
+        $this->assertNotSame('forged', $token);
+        $this->assertTrue(self::csrf()->verify('sess-1', $token));
+    }
+
+    #[Test]
     public function view_uses_the_given_status_with_a_layout(): void
     {
-        $response = new ControllerBaseStub()->callView('hello', [], 'layout', HttpStatus::NotFound);
+        $response = self::controller()->callView(self::request(), 'hello', [], 'lay', HttpStatus::NotFound);
 
         $this->assertSame(HttpStatus::NotFound, $response->status);
         $this->assertSame(['Content-Type' => ['text/html; charset=utf-8']], $response->headers->list);
     }
 
     #[Test]
-    public function view_throws_for_a_missing_layout(): void
+    #[TestWith(['does_not_exist', null])]
+    #[TestWith(['hello', 'does_not_exist'])]
+    public function view_throws_for_a_missing_template_or_layout(string $template, ?string $layout): void
     {
         $this->expectException(WebError::class);
-        new ControllerBaseStub()->callView('hello', [], 'does_not_exist');
+        self::controller()->callView(self::request(), $template, [], $layout);
     }
 
-    private const array JSON = ['Content-Type' => ['application/json; charset=utf-8'], 'Vary' => ['Accept']];
-    private const array CBOR = ['Content-Type' => ['application/cbor'], 'Vary' => ['Accept']];
+    // ---- payload ----
 
     /**
      * @param array<string, mixed> $data
@@ -98,7 +167,7 @@ final class ControllerBaseTest extends TestCase
     #[TestWith([['url' => '/jobs/1', 'name' => 'රසීද', 'sep' => "\u{2028}"], "{\"url\":\"/jobs/1\",\"name\":\"රසීද\",\"sep\":\"\u{2028}\"}"])]
     public function payload_sends_json(array $data, string $expected): void
     {
-        $response = new ControllerBaseStub()->callPayload($data, ['application/json']);
+        $response = self::controller()->callPayload($data, ['application/json']);
 
         $this->assertSame(HttpStatus::Ok, $response->status);
         $this->assertSame(self::JSON, $response->headers->list);
@@ -113,7 +182,7 @@ final class ControllerBaseTest extends TestCase
     #[TestWith([[], "\x80"])]                          // empty PHP array is a list
     public function payload_sends_cbor(array $data, string $expected): void
     {
-        $response = new ControllerBaseStub()->callPayload($data, ['application/cbor']);
+        $response = self::controller()->callPayload($data, ['application/cbor']);
 
         $this->assertSame(HttpStatus::Ok, $response->status);
         $this->assertSame(self::CBOR, $response->headers->list);
@@ -133,14 +202,14 @@ final class ControllerBaseTest extends TestCase
     #[TestWith([['application/json;q=0.5', 'application/cbor;q=0.9'], 'application/cbor'])] // higher q wins
     #[TestWith([['application/cbor;q=0.9', 'application/json'], 'application/json'])]       // missing q means 1
     #[TestWith([['*/*', 'application/cbor'], 'application/cbor'])]                          // specific beats wildcard at equal q
-    #[TestWith([['application/cbor', 'application/json;q=0.1'], 'application/cbor'])]       // header split over several lines
+    #[TestWith([['application/cbor', 'application/json;q=0.1'], 'application/cbor'])]
     #[TestWith([['application/cbor;q=0', 'application/json'], 'application/json'])]         // q=0 means "not acceptable"
     public function payload_negotiates_the_type_from_accept(array $accept, string $expectedType): void
     {
-        $response = new ControllerBaseStub()->callPayload(['id' => 1], $accept);
+        $response = self::controller()->callPayload(['id' => 1], $accept);
 
         $this->assertSame(HttpStatus::Ok, $response->status);
-        $this->assertStringStartsWith($expectedType, Cast::string($response->headers[HttpHeaders::ContentType]));
+        $this->assertStringStartsWith($expectedType, Cast::string($response->headers[ResponseHeaders::ContentType]));
     }
 
     /**
@@ -148,20 +217,20 @@ final class ControllerBaseTest extends TestCase
      */
     #[Test]
     #[TestWith([['text/xml']])]
-    #[TestWith([['application/json;q=0, application/cbor;q=0']])]
+    #[TestWith([['application/json;q=0', 'application/cbor;q=0']])]
     public function payload_answers_406_when_no_supported_type_is_acceptable(array $accept): void
     {
-        $response = new ControllerBaseStub()->callPayload(['id' => 1], $accept);
+        $response = self::controller()->callPayload(['id' => 1], $accept);
 
         $this->assertSame(HttpStatus::NotAcceptable, $response->status);
-        $this->assertSame(['Accept'], $response->headers->list['Vary']);
+        $this->assertSame(['Accept'], $response->headers[ResponseHeaders::Vary]);
         $this->assertSame('Supported: application/json, application/cbor', self::body($response));
     }
 
     #[Test]
     public function payload_uses_the_given_status(): void
     {
-        $response = new ControllerBaseStub()->callPayload(['error' => 'taken'], [], HttpStatus::Conflict);
+        $response = self::controller()->callPayload(['error' => 'taken'], [], HttpStatus::Conflict);
 
         $this->assertSame(HttpStatus::Conflict, $response->status);
     }
@@ -170,7 +239,7 @@ final class ControllerBaseTest extends TestCase
     public function payload_throws_on_data_json_cannot_hold(): void
     {
         $this->expectException(JsonException::class);
-        new ControllerBaseStub()->callPayload(['bad' => "\xB1\x31"], ['application/json']); // invalid UTF-8
+        self::controller()->callPayload(['bad' => "\xB1\x31"], ['application/json']); // invalid UTF-8
     }
 
     #[Test]
@@ -178,13 +247,15 @@ final class ControllerBaseTest extends TestCase
     {
         $this->expectException(\Cbor\Exception::class);
         $this->expectExceptionCode(CBOR_ERROR_UTF8);
-        new ControllerBaseStub()->callPayload(['bad' => "\xB1\x31"], ['application/cbor']);
+        self::controller()->callPayload(['bad' => "\xB1\x31"], ['application/cbor']);
     }
+
+    // ---- sse ----
 
     #[Test]
     public function sse_sets_stream_headers(): void
     {
-        $response = new ControllerBaseStub()->callSse(static function (Closure $emit): void {
+        $response = self::controller()->callSse(static function (Closure $emit): void {
         });
 
         $this->assertSame(HttpStatus::Ok, $response->status);
@@ -199,7 +270,7 @@ final class ControllerBaseTest extends TestCase
     public function sse_runs_the_source_only_when_sent(): void
     {
         $calls = 0;
-        $response = new ControllerBaseStub()->callSse(static function (Closure $emit) use (&$calls): void {
+        $response = self::controller()->callSse(static function (Closure $emit) use (&$calls): void {
             $calls++;
         });
 
@@ -222,7 +293,7 @@ final class ControllerBaseTest extends TestCase
     #[TestWith([[['note', ['s' => "a\u{2028}b"]]], "event: note\ndata: {\"s\":\"a\\u2028b\"}\n\n"])]      // line terminators stay escaped
     public function sse_frames_each_emitted_event_as_json(array $events, string $expected): void
     {
-        $response = new ControllerBaseStub()->callSse(static function (Closure $emit) use ($events): void {
+        $response = self::controller()->callSse(static function (Closure $emit) use ($events): void {
             foreach ($events as [$event, $data]) {
                 $emit($event, $data);
             }
@@ -234,7 +305,7 @@ final class ControllerBaseTest extends TestCase
     #[Test]
     public function sse_throws_on_data_json_cannot_hold(): void
     {
-        $response = new ControllerBaseStub()->callSse(static function (Closure $emit): void {
+        $response = self::controller()->callSse(static function (Closure $emit): void {
             $emit('bad', ['text' => "\xB1\x31"]); // invalid UTF-8
         });
 
@@ -242,7 +313,7 @@ final class ControllerBaseTest extends TestCase
 
         ob_start();
         try {
-            $response->send();
+            $response->send(true);
         } finally {
             ob_end_clean(); // close the buffer even when send() throws, or PHPUnit flags the test as risky
         }

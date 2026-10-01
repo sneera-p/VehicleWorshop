@@ -7,9 +7,9 @@ namespace Vwork\Web\Registry;
 use Closure;
 use Override;
 use Vwork\Domain\DomainRegistry;
-use Vwork\Domain\IDomainRegistry;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Middleware\IMiddleware;
+use Vwork\Web\Utils\IUtility;
 
 /**
  * The one door into domain/, controllers and middleware.
@@ -18,32 +18,39 @@ use Vwork\Web\Middleware\IMiddleware;
  * one for middleware. Each is built the first time someone asks, then
  * the same object is handed out every time after.
  *
+ * @extends DomainRegistry<IAppRegistry>
+ *
  * @author Senira <senirahan@gmail.com>
  */
-final class AppServiceRegistry extends DomainRegistry implements IAppServiceRegistry
+final class AppRegistry extends DomainRegistry implements IAppRegistry
 {
     /**
-     * @param array<class-string, array<class-string, Closure(IDomainRegistry): object>> $bindings
+     * @param array<class-string, array<class-string, Closure(IAppRegistry): object>> $bindings
      */
     public function __construct(array $bindings)
     {
         parent::__construct(
             $bindings,
-            [IController::class, IMiddleware::class]
+            [IUtility::class, IController::class, IMiddleware::class],
+            $this
         );
     }
 
     #[Override]
     public function getController(string $name): IController
     {
-        /** @var IController */
-        return $this->resolve(IController::class, $name, $this);
+        return $this->registry->resolve(IController::class, $name);
     }
 
     #[Override]
     public function getMiddleware(string $name): IMiddleware
     {
-        /** @var IMiddleware */
-        return $this->resolve(IMiddleware::class, $name, $this);
+        return $this->registry->resolve(IMiddleware::class, $name);
+    }
+
+    #[Override]
+    public function getUtility(string $name): IUtility
+    {
+        return $this->registry->resolve(IUtility::class, $name);
     }
 }

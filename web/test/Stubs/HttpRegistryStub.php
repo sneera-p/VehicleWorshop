@@ -8,6 +8,7 @@ use Override;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Middleware\IMiddleware;
 use Vwork\Web\Registry\IHttpRegistry;
+use Vwork\Web\Utils\IUtility;
 
 /**
  * Builds whatever class it is asked for. No config, no caching.
@@ -22,6 +23,12 @@ final class HttpRegistryStub implements IHttpRegistry
 
     #[Override]
     public function getMiddleware(string $name): IMiddleware
+    {
+        return new $name();
+    }
+
+    #[Override]
+    public function getUtility(string $name): IUtility
     {
         return new $name();
     }

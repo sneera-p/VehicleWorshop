@@ -17,21 +17,25 @@ use Vwork\Domain\Modules\IFacade;
 interface IDomainRegistry
 {
     /**
-     * @param class-string<IInfrastructure> $name
-     * @throws VworkError - if there is no registered infrastructure
+     * @template T of IInfrastructure
+     * @param class-string<T> $name
+     * @return T
+     * @throws VworkError if nothing is bound to $name
      *
      * ```php
-     *      $registry->getInfrastructure(ICache::class)
+     *      $cache = $registry->getInfrastructure(ICache::class); // typed ICache
      * ```
      */
     public function getInfrastructure(string $name): IInfrastructure;
 
     /**
-     * @param class-string<IFacade> $name
-     * @throws VworkError - if there is no registered facade
+     * @template T of IFacade
+     * @param class-string<T> $name
+     * @return T
+     * @throws VworkError if nothing is bound to $name
      *
      * ```php
-     *      $registry->getFacade(IJobFacade::class)
+     *      $jobs = $registry->getFacade(IJobFacade::class); // typed IJobFacade
      * ```
      */
     public function getFacade(string $name): IFacade;

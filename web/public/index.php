@@ -4,16 +4,27 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-use Vwork\Domain\IDomainRegistry;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Middleware\IMiddleware;
 use Vwork\Web\AppBuilder;
+use Vwork\Web\Registry\IAppRegistry;
+use Vwork\Web\Router\RouterTypes;
+use Vwork\Web\Utils\IUtility;
+
+$builder = new AppBuilder();
 
 /**
- * @var array<class-string, Closure(IDomainRegistry): object>
+ * @var array<class-string<IUtility>, Closure(IAppRegistry): object>
+ */
+$utils = require __DIR__ . '/../config/services/utils.php';
+$builder->addUtils($utils);
+
+/**
+ * @var array<class-string<IController>, Closure(IAppRegistry): object>
  */
 $controllers = require __DIR__ . '/../config/services/controllers.php';
+$builder->addControllers($controllers);
 
 /**
  * @var list<array{
@@ -28,11 +39,11 @@ $controllers = require __DIR__ . '/../config/services/controllers.php';
  * }>
  */
 $routes = require __DIR__ . '/../config/routes/dummy.php';
+$builder->addRoutes($routes);
 
-
-$app = new AppBuilder()
-    ->addControllers($controllers)
-    ->addRoutes($routes)
+$app = $builder
+    ->withRouter(RouterTypes::Trie)
+    ->withoutSecure() // REMOVE this when putting to PROD
     ->build();
 
 // FrankenPHP sets FRANKENPHP_WORKER on $_SERVER only when it runs this

@@ -7,8 +7,8 @@ namespace Vwork\Web\Http\Cookies;
 use ArrayAccess;
 use Override;
 use Vwork\Web\WebError;
-use Vwork\Web\Http\Headers\HttpHeaders;
 use Vwork\Web\Http\Headers\HttpHeaderList;
+use Vwork\Web\Http\Headers\RequestHeaders;
 
 /**
  * Cookies the browser sent, parsed from the Cookie header.
@@ -56,10 +56,13 @@ final class RequestCookieList implements ArrayAccess
     }
 
 
+    /**
+     * @param HttpHeaderList<RequestHeaders> $headers
+     */
     public static function fromHeader(HttpHeaderList $headers): self
     {
         /** @var string */
-        $raw = $headers[HttpHeaders::Cookie] ?? '';
+        $raw = $headers[RequestHeaders::Cookie] ?? '';
         $list = [];
 
         foreach (explode(';', $raw) as $pair) {

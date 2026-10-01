@@ -22,5 +22,10 @@ interface IMiddleware
     /**
      * @param array<string, mixed> $attr values from the route and earlier stops
      */
-    public function handle(Request $request, array $attr, IPipelineHandler $next, PipelineContext $ctx): Response;
+    public function handle(
+        Request $request,
+        array $attr,
+        IPipelineHandler $next,
+        PipelineContext $ctx
+    ): Response;
 }

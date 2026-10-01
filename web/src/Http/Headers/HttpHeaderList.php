@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vwork\Web\Http\Headers;
 
 use ArrayAccess;
+use BackedEnum;
 use Generator;
 use IteratorAggregate;
 use Override;
@@ -12,16 +13,24 @@ use Vwork\Shared\Types\Cast;
 use Vwork\Web\WebError;
 
 /**
- * @implements ArrayAccess<HttpHeaders, list<string>|string>
- * @implements IteratorAggregate<HttpHeaders, list<string>>
+ * @template T of HttpHeader & BackedEnum
+ *
+ * @implements ArrayAccess<T, list<string>|string>
+ * @implements IteratorAggregate<T, list<string>>
  */
 final class HttpHeaderList implements ArrayAccess, IteratorAggregate
 {
-    /** @var array<value-of<HttpHeaders>, list<string>> */
+    /** @var array<value-of<T>, list<string>> */
     public private(set) array $list = [];
 
+    /** @param class-string<T> $enum */
+    private function __construct(
+        private readonly string $enum
+    ) {
+    }
+
     /**
-     * @param HttpHeaders $offset
+     * @param T $offset
      */
     #[Override]
     public function offsetExists(mixed $offset): bool
@@ -30,7 +39,7 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @param HttpHeaders $offset
+     * @param T $offset
      * @return list<string>|string|null list for list headers, single value otherwise
      */
     #[Override]
@@ -46,7 +55,7 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @param HttpHeaders $offset
+     * @param T $offset
      * @param string $value
      * List headers append; everything else replaces.
      */
@@ -65,7 +74,7 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @param HttpHeaders $offset
+     * @param T $offset
      */
     #[Override]
     public function offsetUnset(mixed $offset): void
@@ -74,13 +83,13 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @return Generator<HttpHeaders, list<string>>
+     * @return Generator<T, list<string>>
      */
     #[Override]
     public function getIterator(): Generator
     {
         foreach ($this->list as $name => $values) {
-            yield HttpHeaders::from($name) => $values;
+            yield ($this->enum)::from($name) => $values;
         }
     }
 
@@ -91,19 +100,21 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     {
         foreach ($this->list as $name => $values) {
             foreach ($values as $value) {
-                yield "{$name}: {$value}";
+                yield ($this->enum)::from($name)->toLine($value);
             }
         }
     }
 
     /**
      * @param array<string|int, mixed> $server $_SERVER, passed in
+     * @return self<RequestHeaders>
      */
     public static function fromServer(array $server): self
     {
-        $list = new self();
+        /** @var self<RequestHeaders> */
+        $list = new self(RequestHeaders::class);
 
-        foreach (HttpHeaders::serverKeyMap() as $key => $header) {
+        foreach (RequestHeaders::serverKeyMap() as $key => $header) {
             if (!isset($server[$key])) {
                 continue;
             }
@@ -123,16 +134,20 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @param array<value-of<HttpHeaders>, list<string>> $headers
+     * @param array<value-of<ResponseHeaders>, list<string>> $headers
+     * @return self<ResponseHeaders>
      */
     public static function fromArray(array $headers): self
     {
-        $list = new self();
+        /** @var self<ResponseHeaders> */
+        $list = new self(ResponseHeaders::class);
+
         foreach ($headers as $name => $values) {
             foreach ($values as $value) {
-                $list[HttpHeaders::from($name)] = $value;
+                $list[ResponseHeaders::from($name)] = $value;
             }
         }
+
         return $list;
     }
 }

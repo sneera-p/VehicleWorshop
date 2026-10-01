@@ -14,21 +14,26 @@ use Vwork\Web\Test\Stubs\ControllerStub;
 
 final class ControllerHandlerTest extends TestCase
 {
+    private static function controller(): ControllerStub
+    {
+        return new ControllerStub();
+    }
+
     #[Test]
     public function handle_returns_the_controller_response(): void
     {
         $request = new ReflectionClass(Request::class)->newInstanceWithoutConstructor();
 
-        $response = new ControllerHandler(new ControllerStub(), 'index')->handle($request, []);
+        $response = new ControllerHandler($this->controller(), 'index')->handle($request, []);
 
         $this->expectOutputString('index');
-        $response->send();
+        $response->send(true);
     }
 
     #[Test]
     public function refuses_a_method_that_is_not_an_action(): void
     {
         $this->expectException(ControllerError::class);
-        new ControllerHandler(new ControllerStub(), 'notMarked');
+        new ControllerHandler($this->controller(), 'notMarked');
     }
 }
