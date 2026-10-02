@@ -20,9 +20,9 @@ use Vwork\Web\Http\Response;
 final class MiddlewareHandler implements IPipelineHandler
 {
     public function __construct(
-        public readonly IMiddleware $middleware,
-        public readonly IPipelineHandler $next,
-        public readonly PipelineContext $ctx
+        private readonly IMiddleware $middleware,
+        private readonly IPipelineHandler $next,
+        private readonly PipelineContext $ctx
     ) {
     }
 

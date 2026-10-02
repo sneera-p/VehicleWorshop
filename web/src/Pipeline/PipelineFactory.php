@@ -16,7 +16,7 @@ use Vwork\Web\Middleware\IMiddleware;
 final readonly class PipelineFactory
 {
     public function __construct(
-        public IRegistry $registry,
+        private IRegistry $registry,
     ) {
     }
 

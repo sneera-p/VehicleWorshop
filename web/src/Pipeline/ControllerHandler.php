@@ -27,8 +27,8 @@ final class ControllerHandler implements IPipelineHandler
      * @throws ControllerError if $method can't be called from outside
      */
     public function __construct(
-        public readonly IController $controller,
-        public readonly string $method,
+        private readonly IController $controller,
+        private readonly string $method,
     ) {
         ControllerAction::verify($controller, $method);
     }
