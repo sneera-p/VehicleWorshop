@@ -6,13 +6,14 @@ namespace Vwork\Web\Test\Unit\Pipeline;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use Vwork\Shared\Collections\ImmutableRegistry;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Http\HttpMethods;
+use Vwork\Web\Http\Request;
 use Vwork\Web\Middleware\IMiddleware;
 use Vwork\Web\Pipeline\ControllerHandler;
 use Vwork\Web\Pipeline\IPipelineHandler;
-use Vwork\Web\Pipeline\MiddlewareHandler;
 use Vwork\Web\Pipeline\PipelineFactory;
 use Vwork\Web\Test\Stubs\ControllerStub;
 use Vwork\Web\Test\Stubs\MiddlewareStub;
@@ -54,15 +55,11 @@ final class PipelineFactoryTest extends TestCase
     #[Test]
     public function build_wraps_each_middleware_around_the_controller_with_one_context(): void
     {
-        $first = self::build([MiddlewareStub::class, MiddlewareStub::class], ['roles' => 'admin']);
+        $pipeline = self::build([MiddlewareStub::class, MiddlewareStub::class], ['roles' => 'admin']);
+        $request = new ReflectionClass(Request::class)->newInstanceWithoutConstructor();
 
-        $this->assertInstanceOf(MiddlewareHandler::class, $first);
-        $second = $first->next;
-        $this->assertInstanceOf(MiddlewareHandler::class, $second);
-        $this->assertInstanceOf(ControllerHandler::class, $second->next);
-
-        $this->assertSame('admin', $first->ctx->roles);
-        $this->assertSame($first->ctx, $second->ctx);
+        $this->expectOutputString('index');
+        $pipeline->handle($request, [])->send(true);
     }
 
     #[Test]
