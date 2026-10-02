@@ -12,8 +12,6 @@ namespace Vwork\Web\Http\Headers;
  */
 enum RequestHeaders: string implements HttpHeader
 {
-    use HeaderLine;
-
     case Accept = 'Accept';
     case Authorization = 'Authorization';
     case ContentLength = 'Content-Length';

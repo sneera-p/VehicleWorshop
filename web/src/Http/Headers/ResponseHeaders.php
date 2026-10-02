@@ -15,8 +15,6 @@ namespace Vwork\Web\Http\Headers;
  */
 enum ResponseHeaders: string implements HttpHeader
 {
-    use HeaderLine;
-
     case Allow = 'Allow';
     case CacheControl = 'Cache-Control';
     case ContentDisposition = 'Content-Disposition';

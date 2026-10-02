@@ -17,9 +17,4 @@ interface HttpHeader
      * Everything else is one opaque value.
      */
     public function isList(): bool;
-
-    /**
-     * The header as it goes on the wire: "Name: value".
-     */
-    public function toLine(string $value): string;
 }

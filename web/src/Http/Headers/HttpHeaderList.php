@@ -100,7 +100,7 @@ final class HttpHeaderList implements ArrayAccess, IteratorAggregate
     {
         foreach ($this->list as $name => $values) {
             foreach ($values as $value) {
-                yield ($this->enum)::from($name)->toLine($value);
+                yield "$name: $value";
             }
         }
     }
