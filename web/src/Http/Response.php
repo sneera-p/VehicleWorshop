@@ -25,7 +25,7 @@ use Vwork\Web\Http\Headers\ResponseHeaders;
  */
 final class Response
 {
-    public private(set) ResponseCookieList $cookies;
+    public readonly ResponseCookieList $cookies;
 
     /**
      * @param HttpHeaderList<ResponseHeaders> $headers

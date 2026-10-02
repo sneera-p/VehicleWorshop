@@ -16,7 +16,7 @@ use Vwork\Web\Http\Headers\RequestHeaders;
  *
  * @implements ArrayAccess<HttpCookies, string>
  */
-final class RequestCookieList implements ArrayAccess
+final readonly class RequestCookieList implements ArrayAccess
 {
     /** @param array<value-of<HttpCookies>, string> $list */
     private function __construct(
