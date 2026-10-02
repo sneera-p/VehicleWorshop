@@ -22,11 +22,6 @@ final class ValkeyPubSub extends Valkey implements IPubSub
         parent::__construct($host, $port, $password);
     }
 
-    public function __destruct()
-    {
-        parent::__destruct();
-    }
-
     #[Override]
     public function publish(PubSubTopics $topic, string $message): void
     {

@@ -21,11 +21,6 @@ final class ValkeyCache extends Valkey implements ICache
         $this->client->setOption(Redis::OPT_PREFIX, "vwork:cache:");
     }
 
-    public function __destruct()
-    {
-        parent::__destruct();
-    }
-
     #[Override]
     public function set(string $key, mixed $value, ?int $ttl = null): void
     {
