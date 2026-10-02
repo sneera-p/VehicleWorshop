@@ -41,8 +41,8 @@ final class AppBuilderTest extends TestCase
     public function build_wires_services_and_routes_into_a_working_app(): void
     {
         $builder = new AppBuilder();
-        $builder->addControllers([ControllerStub::class => static fn () => new ControllerStub()]);
-        $builder->addMiddleware([MiddlewareStub::class => static fn () => new MiddlewareStub()]);
+        $builder->addServices([ControllerStub::class => static fn () => new ControllerStub()]);
+        $builder->addServices([MiddlewareStub::class => static fn () => new MiddlewareStub()]);
         $builder->addRoutes([self::route('/jobs', [MiddlewareStub::class])]);
         $builder->withRouter(RouterTypes::Trie);
 
@@ -60,10 +60,10 @@ final class AppBuilderTest extends TestCase
     public function add_throws_when_a_class_is_registered_twice(): void
     {
         $builder = new AppBuilder();
-        $builder->addControllers([ControllerStub::class => static fn () => new ControllerStub()]);
+        $builder->addServices([ControllerStub::class => static fn () => new ControllerStub()]);
 
         $this->expectException(WebError::class);
-        $builder->addControllers([ControllerStub::class => static fn () => new ControllerStub()]);
+        $builder->addServices([ControllerStub::class => static fn () => new ControllerStub()]);
     }
 
     #[Test]

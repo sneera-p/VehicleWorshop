@@ -6,6 +6,8 @@ namespace Vwork\Web\Test\Unit\Pipeline;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Vwork\Shared\Collections\ImmutableRegistry;
+use Vwork\Web\Controllers\IController;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Middleware\IMiddleware;
 use Vwork\Web\Pipeline\ControllerHandler;
@@ -13,7 +15,6 @@ use Vwork\Web\Pipeline\IPipelineHandler;
 use Vwork\Web\Pipeline\MiddlewareHandler;
 use Vwork\Web\Pipeline\PipelineFactory;
 use Vwork\Web\Test\Stubs\ControllerStub;
-use Vwork\Web\Test\Stubs\HttpRegistryStub;
 use Vwork\Web\Test\Stubs\MiddlewareStub;
 use Vwork\Web\WebError;
 
@@ -25,7 +26,15 @@ final class PipelineFactoryTest extends TestCase
      */
     private static function build(array $middleware, array $context): IPipelineHandler
     {
-        return new PipelineFactory(new HttpRegistryStub())->build([
+        $registry = new ImmutableRegistry(
+            bindings: [
+                ControllerStub::class => static fn (): ControllerStub => new ControllerStub(),
+                MiddlewareStub::class => static fn (): MiddlewareStub => new MiddlewareStub(),
+            ],
+            allowed: [IController::class, IMiddleware::class],
+        );
+
+        return new PipelineFactory($registry)->build([
             'method' => HttpMethods::GET,
             'path' => '/',
             'controller' => ['class' => ControllerStub::class, 'method' => 'index'],

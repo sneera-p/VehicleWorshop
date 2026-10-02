@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Pipeline;
 
-use Vwork\Web\Registry\IHttpRegistry;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Middleware\IMiddleware;
 
@@ -16,7 +16,7 @@ use Vwork\Web\Middleware\IMiddleware;
 final readonly class PipelineFactory
 {
     public function __construct(
-        public IHttpRegistry $registry,
+        public IRegistry $registry,
     ) {
     }
 
@@ -37,13 +37,13 @@ final readonly class PipelineFactory
     public function build(array $config): IPipelineHandler
     {
         $cur = new ControllerHandler(
-            $this->registry->getController($config['controller']['class']),
+            $this->registry->get($config['controller']['class']),
             $config['controller']['method']
         );
 
         foreach (array_reverse($config['middleware']) as $middleware) {
             $ctx ??= PipelineContext::fromArray($config['context']);
-            $cur = new MiddlewareHandler($this->registry->getMiddleware($middleware), $cur, $ctx);
+            $cur = new MiddlewareHandler($this->registry->get($middleware), $cur, $ctx);
         }
 
         return $cur;
