@@ -12,7 +12,6 @@ use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Pipeline\ControllerHandler;
-use Vwork\Web\Router\Router;
 use Vwork\Web\Router\RouterFactory;
 use Vwork\Web\Router\RouterTypes;
 use Vwork\Web\Test\Stubs\ControllerStub;
