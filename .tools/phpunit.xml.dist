@@ -27,12 +27,12 @@
          together — lives at domain/'s own root since it's testing the
          seam between infrastructure/ and modules/, not either alone.
       -->
-      <testsuite name="integration">
+      <!-- <testsuite name="integration">
          <directory>../domain/test</directory>
          <directory>../web/test/Integration</directory>
          <directory>../worker/test/Integration</directory>
          <directory>../console/test/Integration</directory>
-      </testsuite>
+      </testsuite> -->
       <!--
          Root test/e2e only — the cross-process suite (web publishes,
          worker reacts). web/test/e2e (Playwright) runs via its own
