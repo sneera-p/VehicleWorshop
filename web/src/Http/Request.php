@@ -21,7 +21,7 @@ use Vwork\Web\Http\Headers\RequestHeaders;
  *
  * @author Senira <senirahan@gmail.com>
  */
-final class Request
+final readonly class Request
 {
     /**
      * @param HttpHeaderList<RequestHeaders> $headers

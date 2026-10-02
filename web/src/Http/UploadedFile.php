@@ -19,7 +19,7 @@ namespace Vwork\Web\Http;
  *
  * @author Senira <senirahan@gmail.com>
  */
-final class UploadedFile
+final readonly class UploadedFile
 {
     private function __construct(
         public readonly string $name,
