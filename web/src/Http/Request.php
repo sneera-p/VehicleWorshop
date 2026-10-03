@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Http;
 
+use Vwork\Shared\Collections\EnumList;
 use Vwork\Shared\Types\Cast;
+use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\WebException;
-use Vwork\Web\Http\Headers\HttpHeaderList;
-use Vwork\Web\Http\Cookies\RequestCookieList;
 use Vwork\Web\Http\Headers\RequestHeaders;
 
 /**
@@ -24,22 +24,79 @@ use Vwork\Web\Http\Headers\RequestHeaders;
 final readonly class Request
 {
     /**
-     * @param HttpHeaderList<RequestHeaders> $headers
+     * @param EnumList<RequestHeaders, list<string>> $headers
+     * @param EnumList<HttpCookies, string> $cookies
      * @param array<string, string> $query
      * @param array<string, string> $formData
      * @param array<string, UploadedFile> $files
      */
     private function __construct(
-        public readonly HttpMethods $method,
-        public readonly string $path,
-        public readonly HttpHeaderList $headers,
-        public readonly RequestCookieList $cookies,
-        public readonly array $query,
-        public readonly string $body,
-        public readonly array $formData,
-        public readonly array $files,
-        public readonly string $ip,
+        public HttpMethods $method,
+        public string $path,
+        public EnumList $headers,
+        public EnumList $cookies,
+        public array $query,
+        public string $body,
+        public array $formData,
+        public array $files,
+        public string $ip,
     ) {
+    }
+
+    /**
+     * @param array<string|int, mixed> $server $_SERVER, passed in
+     * @return EnumList<RequestHeaders, list<string>>
+     */
+    private static function extractHeaders(array $server): EnumList
+    {
+        /** @var EnumList<RequestHeaders, list<string>> */
+        $list = EnumList::of(RequestHeaders::class);
+
+        foreach (RequestHeaders::serverKeyMap() as $key => $header) {
+            if (!isset($server[$key])) {
+                continue;
+            }
+
+            $raw = Cast::string($server[$key]);
+            $values = $header->isList() ? explode(',', $raw) : [$raw];
+
+            $acc = [];
+            foreach ($values as $value) {
+                $value = trim($value);
+                if ($value !== '') {
+                    $acc[] = $value;          // simpler than [...$acc, $value]
+                }
+            }
+
+            if ($acc !== []) {
+                $list = $list->with($header, $acc);
+            }
+        }
+
+        return $list;
+    }
+
+    /**
+     * @param EnumList<RequestHeaders, list<string>> $headers
+     * @return EnumList<HttpCookies, string>
+     */
+    public static function extractCookies(EnumList $headers): EnumList
+    {
+        /** @var string */
+        $raw = $headers[RequestHeaders::Cookie][0] ?? '';
+
+        /** @var EnumList<HttpCookies, string> */
+        $list = EnumList::of(HttpCookies::class);
+
+        foreach (explode(';', $raw) as $pair) {
+            [$name, $value] = array_pad(explode('=', trim($pair), 2), 2, '');
+            // unknown names are ignored; the enum is the allowlist
+            if (($key = HttpCookies::tryFrom($name)) !== null) {
+                $list = $list->with($key, rawurldecode($value));
+            }
+        }
+
+        return $list;
     }
 
     /**
@@ -112,13 +169,13 @@ final readonly class Request
             $body = '';
         }
 
-        $headers = HttpHeaderList::fromServer($_SERVER);
+        $headers = self::extractHeaders($_SERVER);
 
         return new self(
             method: $method,
             body: $body,
             headers: $headers,
-            cookies: RequestCookieList::fromHeader($headers),
+            cookies: self::extractCookies($headers),
             files: self::extractFiles($_FILES),
             ip: Cast::string($_SERVER['REMOTE_ADDR']),
             path: explode('?', Cast::string($_SERVER['REQUEST_URI']), 2)[0],

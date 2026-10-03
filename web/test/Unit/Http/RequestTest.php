@@ -130,8 +130,8 @@ final class RequestTest extends TestCase
             'HTTP_ACCEPT' => 'application/cbor, application/json',
         ]);
 
-        $this->assertSame('application/json', $request->headers[RequestHeaders::ContentType]);
-        $this->assertSame('phpunit', $request->headers[RequestHeaders::UserAgent]);
+        $this->assertSame(['application/json'], $request->headers[RequestHeaders::ContentType]);
+        $this->assertSame(['phpunit'], $request->headers[RequestHeaders::UserAgent]);
         $this->assertSame(['application/cbor', 'application/json'], $request->headers[RequestHeaders::Accept]);
     }
 

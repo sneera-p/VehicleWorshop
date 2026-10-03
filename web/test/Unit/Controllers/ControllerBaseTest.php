@@ -209,7 +209,7 @@ final class ControllerBaseTest extends TestCase
         $response = self::controller()->callPayload(['id' => 1], $accept);
 
         $this->assertSame(HttpStatus::Ok, $response->status);
-        $this->assertStringStartsWith($expectedType, Cast::string($response->headers[ResponseHeaders::ContentType]));
+        $this->assertStringStartsWith($expectedType, Cast::string($response->headers[ResponseHeaders::ContentType][0] ?? ''));
     }
 
     /**

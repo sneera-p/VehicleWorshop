@@ -16,8 +16,8 @@ use Vwork\Web\Http\Response;
 use Vwork\Web\WebError;
 
 /**
- * Response's own behaviour: factories, headers, and delegation to
- * its cookie list. Set-Cookie rendering is covered by ResponseCookieListTest.
+ * Response's own behaviour: factories, headers and cookies.
+ * Set-Cookie rendering is covered by HttpCookiesTest.
  */
 final class ResponseTest extends TestCase
 {
@@ -47,7 +47,7 @@ final class ResponseTest extends TestCase
     #[TestWith(['error', [HttpStatus::InternalServerError], HttpStatus::InternalServerError, self::TEXT, ''])]
     #[TestWith(['redirect', ['/jobs/42'], HttpStatus::Found, ['Location' => ['/jobs/42']], ''])]
     #[TestWith(['redirect', ['/jobs', HttpStatus::SeeOther], HttpStatus::SeeOther, ['Location' => ['/jobs']], ''])]
-    #[TestWith(['methodNotAllowed', [[HttpMethods::GET, HttpMethods::POST]], HttpStatus::MethodNotAllowed, ['Allow' => ['GET, POST']], ''])]
+    #[TestWith(['methodNotAllowed', [[HttpMethods::GET, HttpMethods::POST]], HttpStatus::MethodNotAllowed, ['Allow' => ['GET', 'POST']], ''])]
     #[TestWith(['noContent', [], HttpStatus::NoContent, [], ''])]
     public function factories_build_status_headers_and_body(string $factory, array $args, HttpStatus $status, array $headers, string $body): void
     {
@@ -173,7 +173,7 @@ final class ResponseTest extends TestCase
     }
 
     #[Test]
-    public function cookie_methods_delegate_to_the_cookie_list(): void
+    public function cookie_methods_queue_and_unqueue_cookies(): void
     {
         $response = Response::noContent();
 
@@ -183,14 +183,14 @@ final class ResponseTest extends TestCase
         $this->assertSame($response, $response->expireCookie(HttpCookies::RefreshToken, '/auth'));
 
         $this->assertSame([
-            'session_token=abc; Path=/; SameSite=Lax; HttpOnly; Secure',
-            'refresh_token=; Path=/auth; SameSite=Lax; HttpOnly; Max-Age=0; Secure',
-        ], iterator_to_array($response->cookies->toLines(true), false));
+            'session_token' => ['value' => 'abc', 'path' => '/', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => null],
+            'refresh_token' => ['value' => '', 'path' => '/auth', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => 0],
+        ], $response->cookies->list);
         $this->assertSame([], $response->headers->list); // cookies never leak into the header list
     }
 
     #[Test]
-    public function add_cookie_passes_every_attribute_through(): void
+    public function add_cookie_stores_every_attribute(): void
     {
         $response = Response::noContent()->addCookie(
             HttpCookies::RefreshToken,
@@ -201,8 +201,42 @@ final class ResponseTest extends TestCase
         );
 
         $this->assertSame(
-            ['refresh_token=xyz; Path=/auth; SameSite=Strict; HttpOnly; Max-Age=3600; Secure'],
-            iterator_to_array($response->cookies->toLines(true), false),
+            ['refresh_token' => ['value' => 'xyz', 'path' => '/auth', 'sameSite' => CookieSitePolicies::Strict, 'maxAge' => 3600]],
+            $response->cookies->list,
         );
+    }
+
+    #[Test]
+    public function adding_a_cookie_again_replaces_it(): void
+    {
+        $response = Response::noContent()
+            ->addCookie(HttpCookies::SessionToken, 'first', maxAge: 3600)
+            ->addCookie(HttpCookies::SessionToken, 'second');
+
+        $this->assertSame(
+            ['session_token' => ['value' => 'second', 'path' => '/', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => null]],
+            $response->cookies->list,
+        );
+    }
+
+    #[Test]
+    #[TestWith(['/a;b'])]         // would start a new attribute
+    #[TestWith(['/a,b'])]
+    #[TestWith(['/a b'])]
+    #[TestWith(["/a\r\nX: y"])]   // would split the header
+    #[TestWith(["/a\0"])]
+    #[TestWith(['auth'])]         // must start with /
+    #[TestWith([''])]
+    public function add_cookie_rejects_a_path_that_could_inject_attributes(string $path): void
+    {
+        $this->expectException(WebError::class);
+        Response::noContent()->addCookie(HttpCookies::SessionToken, 'x', path: $path);
+    }
+
+    #[Test]
+    public function add_cookie_rejects_a_negative_max_age(): void
+    {
+        $this->expectException(WebError::class);
+        Response::noContent()->addCookie(HttpCookies::SessionToken, 'x', maxAge: -1);
     }
 }
