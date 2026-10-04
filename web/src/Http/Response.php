@@ -9,6 +9,7 @@ use Vwork\Shared\Collections\EnumList;
 use Vwork\Web\WebError;
 use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\Http\Cookies\CookieSitePolicies;
+use Vwork\Web\Http\Cookies\ResponseCookie;
 use Vwork\Web\Http\Headers\ResponseHeaders;
 
 /**
@@ -19,13 +20,6 @@ use Vwork\Web\Http\Headers\ResponseHeaders;
  * push this particular response to the client, whatever shape that
  * takes: a plain page, a file download, or a long-lived SSE stream. The
  * rest of the app never has to ask which kind it's dealing with.
- *
- * @phpstan-type ResponseCookie array{
- *  value: string,
- *  path: string,
- *  sameSite: CookieSitePolicies,
- *  maxAge: ?int
- * }
  *
  * @author Senira <senirahan@gmail.com>
  */
@@ -261,22 +255,12 @@ final class Response
      *
      * @throws WebError if $path is not an absolute path, or $maxAge is negative
      */
-    public function addCookie(HttpCookies $key, string $value, string $path = '/', CookieSitePolicies $sameSite = CookieSitePolicies::Lax, ?int $maxAge = null): self
+    public function addCookie(HttpCookies $name, string $value, string $path = '/', CookieSitePolicies $sameSite = CookieSitePolicies::Lax, ?int $maxAge = null): self
     {
-        if (strpbrk($path, ";,\r\n\0 ") !== false || !str_starts_with($path, '/')) {
-            throw new WebError("Invalid cookie path: {$path}");
-        }
-
-        if ($maxAge !== null && $maxAge < 0) {
-            throw new WebError('Cookie Max-Age cannot be negative');
-        }
-
-        $this->cookies = $this->cookies->with($key, [
-            'value' => $value,
-            'path' => $path,
-            'sameSite' => $sameSite,
-            'maxAge' => $maxAge,
-        ]);
+        $this->cookies = $this->cookies->with(
+            $name,
+            new ResponseCookie($name, $value, $path, $sameSite, $maxAge)
+        );
         return $this;
     }
 
@@ -314,18 +298,15 @@ final class Response
         http_response_code($this->status->value);
 
         foreach ($this->headers as $header => $values) {
-            header("{$header->value}: " . implode(', ', $values), replace: false);
+            header(
+                "{$header->value}: " . implode(', ', $values),
+                replace: false
+            );
         }
 
-        foreach ($this->cookies as $cookie => $c) {
+        foreach ($this->cookies as $cookie) {
             header(
-                $cookie->toLine(
-                    $c['value'],
-                    $c['path'],
-                    $c['sameSite'],
-                    $c['maxAge'],
-                    $secure
-                ),
+                $cookie->toLine($secure),
                 replace: false
             );
         }

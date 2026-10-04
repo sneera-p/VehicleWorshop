@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Vwork\Web\Http\Cookies\CookieSitePolicies;
 use Vwork\Web\Http\Cookies\HttpCookies;
+use Vwork\Web\Http\Cookies\ResponseCookie;
 use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Http\HttpStatus;
@@ -182,9 +183,9 @@ final class ResponseTest extends TestCase
         $this->assertSame($response, $response->rmCookie(HttpCookies::RefreshToken));
         $this->assertSame($response, $response->expireCookie(HttpCookies::RefreshToken, '/auth'));
 
-        $this->assertSame([
-            'session_token' => ['value' => 'abc', 'path' => '/', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => null],
-            'refresh_token' => ['value' => '', 'path' => '/auth', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => 0],
+        $this->assertEquals([
+            'session_token' => new ResponseCookie(HttpCookies::SessionToken, 'abc'),
+            'refresh_token' => new ResponseCookie(HttpCookies::RefreshToken, '', '/auth', maxAge: 0),
         ], $response->cookies->list);
         $this->assertSame([], $response->headers->list); // cookies never leak into the header list
     }
@@ -200,8 +201,8 @@ final class ResponseTest extends TestCase
             maxAge: 3600,
         );
 
-        $this->assertSame(
-            ['refresh_token' => ['value' => 'xyz', 'path' => '/auth', 'sameSite' => CookieSitePolicies::Strict, 'maxAge' => 3600]],
+        $this->assertEquals(
+            ['refresh_token' => new ResponseCookie(HttpCookies::RefreshToken, 'xyz', '/auth', CookieSitePolicies::Strict, 3600)],
             $response->cookies->list,
         );
     }
@@ -213,8 +214,8 @@ final class ResponseTest extends TestCase
             ->addCookie(HttpCookies::SessionToken, 'first', maxAge: 3600)
             ->addCookie(HttpCookies::SessionToken, 'second');
 
-        $this->assertSame(
-            ['session_token' => ['value' => 'second', 'path' => '/', 'sameSite' => CookieSitePolicies::Lax, 'maxAge' => null]],
+        $this->assertEquals(
+            ['session_token' => new ResponseCookie(HttpCookies::SessionToken, 'second')],
             $response->cookies->list,
         );
     }
