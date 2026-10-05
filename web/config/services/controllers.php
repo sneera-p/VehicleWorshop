@@ -12,8 +12,5 @@ use Vwork\Web\Utils\View;
  * Each is built once, the first time a route needs it.
  */
 return [
-    DummyController::class => static fn (IRegistry $r): DummyController => new DummyController(
-        view: $r->get(View::class),
-        csrf: $r->get(CsrfToken::class)
-    ),
+    DummyController::class => static fn (IRegistry $r): DummyController => new DummyController($r),
 ];

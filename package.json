@@ -12,8 +12,8 @@
       "@playwright/test": "1.63.0",
       "@types/bun": "^1.4.2",
       "@types/node": "^26.6.3",
-      "sass": "~1.105.0",
       "tailwindcss": "~4.3.0",
+      "tailwindcss-bun-plugin": "~4.3.0",
       "typescript": "~7.0.0"
    },
    "dependencies": {

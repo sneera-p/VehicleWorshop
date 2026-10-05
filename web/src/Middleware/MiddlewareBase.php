@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vwork\Web\Middleware;
 
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
@@ -20,9 +21,11 @@ use Vwork\Web\Utils\View;
  */
 abstract readonly class MiddlewareBase implements IMiddleware
 {
-    public function __construct(
-        private View $view
-    ) {
+    private View $view;
+
+    public function __construct(IRegistry $registry)
+    {
+        $this->view = $registry->get(View::class);
     }
 
     /**

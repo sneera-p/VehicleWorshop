@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Random\Randomizer;
 use Vwork\Shared\Collections\IRegistry;
+use Vwork\Web\Utils\AssetParser;
 use Vwork\Web\Utils\CsrfToken;
 use Vwork\Web\Utils\View;
 
@@ -14,5 +15,8 @@ return [
     CsrfToken::class => static fn (IRegistry $r) => new CsrfToken(
         secret: 'secret',
         random: new Randomizer()
+    ),
+    AssetParser::class => static fn (IRegistry $r) => new AssetParser(
+        manifestPath: 'web/resources/build/assets.json'
     )
 ];

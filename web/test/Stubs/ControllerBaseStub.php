@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Vwork\Web\Test\Stubs;
 
 use Closure;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Controllers\ControllerBase;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
-use Vwork\Web\Utils\View;
-use Vwork\Web\Utils\CsrfToken;
 
 /**
  * ControllerBase's helpers are protected. This stub makes them public
@@ -18,9 +17,9 @@ use Vwork\Web\Utils\CsrfToken;
  */
 final readonly class ControllerBaseStub extends ControllerBase
 {
-    public function __construct(View $view, CsrfToken $csrf)
+    public function __construct(IRegistry $registry)
     {
-        parent::__construct($view, $csrf);
+        parent::__construct($registry);
     }
 
     /**

@@ -8,9 +8,12 @@ use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
+use Vwork\Shared\Collections\ImmutableRegistry;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Test\Stubs\MiddlewareBaseStub;
+use Vwork\Web\Utils\IUtility;
 use Vwork\Web\Utils\View;
 
 final class MiddlewareBaseTest extends TestCase
@@ -41,7 +44,11 @@ final class MiddlewareBaseTest extends TestCase
     private static function stub(): MiddlewareBaseStub
     {
         // layout/error.php here prints "title|path|message"
-        return new MiddlewareBaseStub(new View('web/test/Fixtures/Views'));
+        $registry = new ImmutableRegistry(
+            [View::class => static fn (IRegistry $r) => new View('web/test/Fixtures/Views')],
+            [IUtility::class]
+        );
+        return new MiddlewareBaseStub($registry);
     }
 
     #[Test]

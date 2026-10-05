@@ -11,13 +11,17 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Random\Randomizer;
+use Vwork\Shared\Collections\ImmutableRegistry;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Shared\Types\Cast;
 use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
 use Vwork\Web\Test\Stubs\ControllerBaseStub;
+use Vwork\Web\Utils\AssetParser;
 use Vwork\Web\Utils\CsrfToken;
+use Vwork\Web\Utils\IUtility;
 use Vwork\Web\Utils\View;
 use Vwork\Web\WebError;
 
@@ -51,7 +55,15 @@ final class ControllerBaseTest extends TestCase
 
     private static function controller(): ControllerBaseStub
     {
-        return new ControllerBaseStub(new View('web/test/Fixtures/Views'), self::csrf());
+        $registry = new ImmutableRegistry(
+            [
+                View::class => static fn (IRegistry $r) => new View('web/test/Fixtures/Views'),
+                CsrfToken::class => static fn (IRegistry $r) => self::csrf(),
+                AssetParser::class => static fn (IRegistry $r) => new AssetParser('web/test/Fixtures/Assets/assets.json')
+            ],
+            [IUtility::class]
+        );
+        return new ControllerBaseStub($registry);
     }
 
     private static function request(?string $session = 'sess-1'): Request

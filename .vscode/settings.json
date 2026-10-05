@@ -68,5 +68,9 @@
       "Caddyfile.dev": "caddy",
       "Caddyfile.prod": "caddy",
       "phpat.neon": "phpstan"
+   },
+
+   "files.associations": {
+      "**/test/Fixtures/Assets/invalid.json": "plaintext"
    }
 }

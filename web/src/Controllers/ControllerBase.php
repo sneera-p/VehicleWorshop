@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Vwork\Web\Controllers;
 
 use Closure;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Http\Cookies\HttpCookies;
 use Vwork\Web\Http\HttpStatus;
 use Vwork\Web\Http\Headers\ResponseHeaders;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
+use Vwork\Web\Utils\AssetParser;
 use Vwork\Web\Utils\CsrfToken;
 use Vwork\Web\Utils\View;
 
@@ -23,10 +25,15 @@ use Vwork\Web\Utils\View;
  */
 abstract readonly class ControllerBase implements IController
 {
-    public function __construct(
-        private View $view,
-        private CsrfToken $csrf
-    ) {
+    private View $view;
+    private CsrfToken $csrf;
+    private AssetParser $assets;
+
+    public function __construct(IRegistry $registry)
+    {
+        $this->view = $registry->get(view::class);
+        $this->csrf = $registry->get(CsrfToken::class);
+        $this->assets = $registry->get(AssetParser::class);
     }
 
     /**
@@ -39,6 +46,7 @@ abstract readonly class ControllerBase implements IController
      *  - 'content' (the rendered template)
      *  - 'title' (defaults to 'No Title')
      *  - 'csrf' (for the <meta> tag that fetch() reads)
+     *  - 'assets' (assets parser)
      *
      * @param string $template - view to render, relative to the views folder
      * @param array<string, mixed> $data - the template's local variables.
@@ -51,13 +59,18 @@ abstract readonly class ControllerBase implements IController
         // no session yet (login page) still gets a token; SameOriginMiddleware guards that case
         $csrf = $this->csrf->create($request->cookies[HttpCookies::SessionToken] ?? '');
 
-        $html = $this->view->render($template, [...$data, 'csrf' => $csrf]);
+        $html = $this->view->render($template, [
+            ...$data,
+            'csrf' => $csrf,
+            'assets' => $this->assets->urls,
+        ]);
 
         if ($layout !== null) {
             $html = $this->view->render($layout, [
                 'content' => $html,
                 'title' => $data['title'] ?? 'No Title',
                 'csrf' => $csrf,
+                'assets' => $this->assets->urls,
             ]);
         }
 

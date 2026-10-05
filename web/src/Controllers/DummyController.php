@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Vwork\Web\Controllers;
 
 use Closure;
-use Override;
+use Vwork\Shared\Collections\IRegistry;
 use Vwork\Web\Http\Request;
 use Vwork\Web\Http\Response;
-use Vwork\Web\Utils\View;
-use Vwork\Web\Utils\CsrfToken;
 
 /**
  * A sample controller: proves a request can travel from the router,
@@ -21,9 +19,9 @@ use Vwork\Web\Utils\CsrfToken;
  */
 final readonly class DummyController extends ControllerBase
 {
-    public function __construct(View $view, CsrfToken $csrf)
+    public function __construct(IRegistry $registry)
     {
-        parent::__construct($view, $csrf);
+        parent::__construct($registry);
     }
 
     /** @param StringMap $attr */
