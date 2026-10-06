@@ -20,9 +20,9 @@
    # Built assets: requests under /assets/ (the URL path, not a disk path).
 	@assets path /assets/*
 
-	# # Only if Bun writes hashed file names (app.3f9a1c.js): let browsers cache
-	# # assets for a year. With fixed names, users would keep stale files.
-	# header @assets Cache-Control "public, max-age=31536000, immutable"
+	# Only if Bun writes hashed file names (app.3f9a1c.js): let browsers cache
+	# assets for a year. With fixed names, users would keep stale files.
+	header @assets Cache-Control "public, max-age=31536000, immutable"
 
 	# `route` runs the directives below in the order written.
 	route {

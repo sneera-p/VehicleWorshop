@@ -41,19 +41,19 @@ $builder->addServices($controllers);
 $routes = require __DIR__ . '/../config/routes/dummy.php';
 $builder->addRoutes($routes);
 
-$app = $builder
-    ->withRouter(RouterTypes::Trie)
-    ->withoutSecure() // REMOVE this when putting to PROD
-    ->build();
+$builder->withRouter(RouterTypes::Trie);
 
-// FrankenPHP sets FRANKENPHP_WORKER on $_SERVER only when it runs this
-// file as a worker (the `worker` directive in the Caddyfile). Then the
-// app is built once and serves requests in a loop. In classic mode this
-// file runs once per request, so answer that one request and stop.
-if (($_SERVER['FRANKENPHP_WORKER'] ?? false) && function_exists('frankenphp_handle_request')) {
+
+if ($_SERVER['FRANKENPHP_WORKER'] ?? false) {
+    // prod
+    $app = $builder->build();
     while (frankenphp_handle_request($app)) {
         gc_collect_cycles();
     }
 } else {
+    // dev
+    $app = $builder
+        ->withoutSecure()
+        ->build();
     $app();
 }
