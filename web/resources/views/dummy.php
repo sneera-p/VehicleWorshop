@@ -4,3 +4,4 @@
  */
 ?>
 <p>Message: <i id='msg'><?= $message ?></i></p>
+<p>Hi</p>
