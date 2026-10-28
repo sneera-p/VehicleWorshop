@@ -4,13 +4,14 @@
    "ts/layouts/blank.ts",
    "css/layouts/auth.css",
    "ts/layouts/auth.ts",
+   "css/layouts/customer.css",
+   "ts/layouts/customer.ts",
 
    // customer
-   // "css/customer/login.css",
-   // "ts/customer/login.ts",
-   // "css/customer/register.css",
-   // "ts/customer/register.ts",
+   "css/customer/dashboard.css",
+   "ts/customer/dashboard.ts",
 
    // dummy
    "css/dummy/dummy.css"
 ]
+

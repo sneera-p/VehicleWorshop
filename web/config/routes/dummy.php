@@ -38,6 +38,13 @@ return [
     ],
     [
         'method' => HttpMethods::GET,
+        'path' => '/dummy/hello',
+        'controller' => ['class' => DummyController::class, 'method' => 'dummyhello'],
+        'middleware' => [],
+        'context' => [],
+    ],
+    [
+        'method' => HttpMethods::GET,
         'path' => '/dummy/greeting',
         'controller' => ['class' => DummyController::class, 'method' => 'greeting'],
         'middleware' => [],

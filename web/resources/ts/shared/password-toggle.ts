@@ -8,11 +8,18 @@ export function initPasswordToggle(): void {
    const eyeOffIcon = document.getElementById('eye-off-icon');
 
    if (toggleBtn && passwordInput && eyeIcon && eyeOffIcon) {
+      const setPasswordVisibility = (isVisible: boolean): void => {
+         passwordInput.type = isVisible ? 'text' : 'password';
+         eyeIcon.classList.toggle('hidden', isVisible);
+         eyeOffIcon.classList.toggle('hidden', !isVisible);
+      };
+
       toggleBtn.addEventListener('click', () => {
-         const isPassword = passwordInput.type === 'password';
-         passwordInput.type = isPassword ? 'text' : 'password';
-         eyeIcon.classList.toggle('hidden', isPassword);
-         eyeOffIcon.classList.toggle('hidden', !isPassword);
+         setPasswordVisibility(passwordInput.type === 'password');
+      });
+
+      passwordInput.parentElement?.addEventListener('mouseleave', () => {
+         setPasswordVisibility(false);
       });
    }
 }

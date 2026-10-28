@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Vwork\Web\Controllers\CustomerAuthController;
+use Vwork\Web\Controllers\CustomerDashboardController;
 use Vwork\Web\Controllers\IController;
 use Vwork\Web\Http\HttpMethods;
 use Vwork\Web\Middleware\IMiddleware;
@@ -32,6 +33,22 @@ return [
         'method'     => HttpMethods::GET,
         'path'       => '/customer/register',
         'controller' => ['class' => CustomerAuthController::class, 'method' => 'registerPage'],
+        'middleware' => [],
+        'context'    => [],
+    ],
+
+    [
+        'method'     => HttpMethods::GET,
+        'path'       => '/customer/overview',
+        'controller' => ['class' => CustomerDashboardController::class, 'method' => 'overviewPage'],
+        'middleware' => [],
+        'context'    => [],
+    ],
+
+    [
+        'method'     => HttpMethods::GET,
+        'path'       => '/customer/dashboard',
+        'controller' => ['class' => CustomerDashboardController::class, 'method' => 'overviewPage'],
         'middleware' => [],
         'context'    => [],
     ],
