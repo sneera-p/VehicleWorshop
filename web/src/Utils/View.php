@@ -90,7 +90,7 @@ final readonly class View implements IUtility
         $hold  = $hold ? ' hold' : '';
 
         return <<<HTML
-            <script{$defer}{$hold} src="{$href}"></script>
+            <script type="module" src="{$href}" {$defer}{$hold}></script>
         HTML;
     }
 }
