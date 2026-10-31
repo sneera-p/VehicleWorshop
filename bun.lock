@@ -5,7 +5,7 @@
     "": {
       "name": "vwork",
       "dependencies": {
-        "@sneze/x-attributes": "github:sneera-p/x-attr#v0.3.0",
+        "@sneze/x-attributes": "github:sneera-p/x-attr#v0.4.0",
         "lodash": "~4.18.0",
       },
       "devDependencies": {
@@ -31,7 +31,7 @@
 
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
 
-    "@sneze/x-attributes": ["@sneze/x-attributes@github:sneera-p/x-attr#0ebf544", {}, "sneera-p-x-attr-0ebf544", "sha512-GXUQEm9kz+tLSSTzBEgq1soV+U8G1XP7E4HiRrOQm3yM/753Q7i1qeq1qmIroZGYH1IB5W/qtFH3WRJRvvAXhg=="],
+    "@sneze/x-attributes": ["@sneze/x-attributes@github:sneera-p/x-attr#49d15f5", {}, "sneera-p-x-attr-49d15f5", "sha512-ftOGXhxYYCN650aSMpmE5ndnpfwRceAZHi6SNojjRqEHvChD3Qh4aozjOm7rrwC1IceWVCZE3U/zQtcjDHdHMA=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 
