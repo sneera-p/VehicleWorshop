@@ -154,7 +154,7 @@
 /* Active Nav Item (Orange Highlight matching mockup) */
 .sidebar-nav-link.active {
    background: linear-gradient(90deg, rgba(249, 115, 22, 0.15) 0%, rgba(249, 115, 22, 0.05) 100%);
-   color: #ffffff;
+   color: #fb923c;
    border-left: 3px solid #f97316;
    font-weight: 600;
 }

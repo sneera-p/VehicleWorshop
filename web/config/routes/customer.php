@@ -52,4 +52,28 @@ return [
         'middleware' => [],
         'context'    => [],
     ],
+
+    [
+        'method'     => HttpMethods::GET,
+        'path'       => '/customer/vehicles',
+        'controller' => ['class' => CustomerDashboardController::class, 'method' => 'vehiclesPage'],
+        'middleware' => [],
+        'context'    => [],
+    ],
+
+    [
+        'method'     => HttpMethods::GET,
+        'path'       => '/customer/appointments',
+        'controller' => ['class' => CustomerDashboardController::class, 'method' => 'appointmentsPage'],
+        'middleware' => [],
+        'context'    => [],
+    ],
+
+    [
+        'method'     => HttpMethods::GET,
+        'path'       => '/customer/history',
+        'controller' => ['class' => CustomerDashboardController::class, 'method' => 'historyPage'],
+        'middleware' => [],
+        'context'    => [],
+    ],
 ];

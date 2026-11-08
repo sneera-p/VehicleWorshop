@@ -21,6 +21,17 @@
  *     milestones: list<array{label: string, status: 'done'|'active'|'pending'}>
  * }|null $current_service
  * @var list<array{title: string, time_label: string}> $recent_activity
+ * @var list<array{
+ *     id: int|string,
+ *     license_plate: string,
+ *     model: string,
+ *     trim_badge: string,
+ *     image: string,
+ *     color_name?: string,
+ *     color_hex?: string,
+ *     status: 'active_service'|'idle',
+ *     bay_status_label?: string
+ * }> $vehicles
  */
 
 $escape = static fn (string|int|float|null $value): string => htmlspecialchars(

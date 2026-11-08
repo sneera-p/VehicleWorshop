@@ -17,6 +17,7 @@ $__filename__ = 'layouts/' . basename(__FILE__, '.php');
 $user_name = isset($user['first_name']) ? htmlspecialchars($user['first_name']) : 'Sachin';
 $user_role = 'Client';
 $current_route = $active_route ?? 'overview';
+$current_route_label = $current_route === 'history' ? 'Repair History' : ucfirst($current_route);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -32,10 +33,10 @@ $current_route = $active_route ?? 'overview';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <?= $renderStylesheet($assets["css/$__filename__.css"] ?? null) ?>
-    <?= $renderStylesheet($assets["css/$content_name.css"] ?? null) ?>
+    <?= $renderStylesheet($assets["css/$content_name.css"] ?? $assets['css/customer/dashboard.css'] ?? null) ?>
 
     <?= $renderScript($assets["ts/$__filename__.ts"] ?? null) ?>
-    <?= $renderScript($assets["ts/$content_name.ts"] ?? null) ?>
+    <?= $renderScript($assets["ts/$content_name.ts"] ?? $assets['ts/customer/dashboard.ts'] ?? null) ?>
 </head>
 <body>
     <div class="customer-layout-wrapper">
@@ -145,7 +146,7 @@ $current_route = $active_route ?? 'overview';
                     <div class="topbar-breadcrumb">
                         <span>Dashboard</span>
                         <span>›</span>
-                        <span class="topbar-breadcrumb-active"><?= ucfirst($current_route) ?></span>
+                        <span class="topbar-breadcrumb-active"><?= htmlspecialchars($current_route_label) ?></span>
                     </div>
                 </div>
 

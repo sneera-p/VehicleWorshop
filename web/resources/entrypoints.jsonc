@@ -10,8 +10,11 @@
    // customer
    "css/customer/dashboard.css",
    "ts/customer/dashboard.ts",
+   "css/customer/vehicles.css",
+   "ts/customer/vehicles.ts",
+   "css/customer/appointments.css",
+   "css/customer/history.css",
 
    // dummy
    "css/dummy/dummy.css"
 ]
-

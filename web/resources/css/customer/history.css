@@ -1,0 +1,209 @@
+/* ==========================================================================
+   Customer Repair History
+   ========================================================================== */
+
+@import "./dashboard.css";
+
+.repair-history-page {
+   gap: 1.5rem;
+}
+
+.repair-history-header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+}
+
+.repair-history-stats {
+   display: grid;
+   grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: 1.25rem;
+}
+
+.repair-history-stat {
+   display: flex;
+   min-width: 0;
+   min-height: 6rem;
+   flex-direction: column;
+   justify-content: center;
+   gap: 0.75rem;
+   padding: 1.25rem 1.5rem;
+   border: 1px solid #e2e8f0;
+   border-radius: var(--radius-lg);
+   background: #ffffff;
+   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.repair-history-stat-label {
+   color: #64748b;
+   font-size: 0.6875rem;
+   font-weight: 700;
+   letter-spacing: 0.07em;
+}
+
+.repair-history-stat-value {
+   overflow-wrap: anywhere;
+   color: #0f172a;
+   font-size: 1.5rem;
+   font-weight: 750;
+   letter-spacing: -0.025em;
+   line-height: 1.2;
+}
+
+.repair-history-card {
+   overflow: hidden;
+   border: 1px solid #e2e8f0;
+   border-radius: var(--radius-xl);
+   background: #ffffff;
+   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.repair-history-list-heading {
+   padding: 1.125rem 1.25rem;
+   border-bottom: 1px solid #e2e8f0;
+   color: #0f172a;
+   font-size: 1rem;
+   font-weight: 700;
+}
+
+.repair-history-scroll {
+   max-height: 26rem;
+   overflow: auto;
+   -webkit-overflow-scrolling: touch;
+}
+
+.repair-history-table {
+   width: 100%;
+   min-width: 58rem;
+   border-collapse: collapse;
+   text-align: left;
+}
+
+.repair-history-table th {
+   position: sticky;
+   top: 0;
+   z-index: 1;
+   padding: 0.875rem 1rem;
+   border-bottom: 1px solid #e2e8f0;
+   background: #f8fafc;
+   color: #64748b;
+   font-size: 0.6875rem;
+   font-weight: 700;
+   letter-spacing: 0.06em;
+   white-space: nowrap;
+}
+
+.repair-history-table td {
+   padding: 0.875rem 1rem;
+   border-bottom: 1px solid #f1f5f9;
+   color: #334155;
+   font-size: 0.8125rem;
+}
+
+.repair-history-table tbody tr:last-child td {
+   border-bottom: 0;
+}
+
+.repair-history-table tbody tr:hover {
+   background: #fbfdff;
+}
+
+.repair-history-date,
+.repair-history-amount {
+   color: #0f172a !important;
+   font-weight: 600;
+   white-space: nowrap;
+}
+
+.repair-history-vehicle {
+   display: flex;
+   flex-direction: column;
+   gap: 0.25rem;
+}
+
+.repair-history-vehicle-model {
+   color: #0f172a;
+   font-weight: 600;
+   white-space: nowrap;
+}
+
+.repair-history-plate {
+   width: fit-content;
+   padding: 0.125rem 0.375rem;
+   border: 1px solid #e2e8f0;
+   border-radius: 0.25rem;
+   background: #f8fafc;
+   color: #64748b;
+   font-family: var(--font-mono);
+   font-size: 0.6875rem;
+}
+
+.repair-history-details {
+   position: relative;
+}
+
+.btn-repair-details {
+   display: inline-flex;
+   min-height: 2.25rem;
+   align-items: center;
+   justify-content: center;
+   padding: 0.5rem 0.75rem;
+   border-radius: var(--radius-md);
+   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.2);
+   color: #ffffff;
+   cursor: pointer;
+   font-size: 0.75rem;
+   font-weight: 600;
+   list-style: none;
+   white-space: nowrap;
+   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-repair-details::-webkit-details-marker {
+   display: none;
+}
+
+.btn-repair-details:hover {
+   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+   transform: translateY(-1px);
+}
+
+.repair-history-details[open] p {
+   position: absolute;
+   top: calc(100% + 0.375rem);
+   right: 0;
+   z-index: 2;
+   width: min(18rem, 70vw);
+   padding: 0.75rem;
+   border: 1px solid #e2e8f0;
+   border-radius: var(--radius-md);
+   background: #ffffff;
+   box-shadow: var(--shadow-lg);
+   color: #475569;
+   font-size: 0.75rem;
+   line-height: 1.5;
+}
+
+.repair-history-empty {
+   padding: 3rem 1rem !important;
+   color: #64748b !important;
+   text-align: center;
+}
+
+@media (max-width: 760px) {
+   .repair-history-stats {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+   }
+
+   .repair-history-stat {
+      min-height: auto;
+      gap: 0.5rem;
+      padding: 1rem 1.125rem;
+   }
+
+   .repair-history-stat-value {
+      font-size: 1.25rem;
+   }
+}

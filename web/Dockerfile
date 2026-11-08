@@ -124,5 +124,6 @@ RUN --mount=type=bind,from=composer,source=/usr/bin/composer,target=/usr/local/b
    && rm composer.json composer.lock
 
 COPY --from=assets /app/web/public/assets ./web/public/assets
+COPY --from=assets /app/web/resources/build/assets.json ./web/resources/build/assets.json
 
 CMD ["frankenphp", "run", "--config", "/app/web/config/Caddyfile.prod"]
